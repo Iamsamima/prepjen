@@ -6,11 +6,12 @@ import { VitalsSection } from '@/components/prescription/VitalsSection';
 import { SymptomsSection } from '@/components/prescription/SymptomsSection';
 import { DiagnosisSection } from '@/components/prescription/DiagnosisSection';
 import { MedicinesSection } from '@/components/prescription/MedicinesSection';
-import { Stethoscope, LogOut, ChevronLeft, ChevronRight, FileText, Download } from 'lucide-react';
+import { TestsSection } from '@/components/prescription/TestsSection';
+import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 
-const steps = ['Vitals', 'Symptoms', 'Diagnosis', 'Medicines'];
+const steps = ['Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines'];
 
 export function PrescriptionBuilder() {
   const { user, signOut } = useAuth();
@@ -23,6 +24,7 @@ export function PrescriptionBuilder() {
   const [clinicalFindings, setClinicalFindings] = useState('');
   const [diagnoses, setDiagnoses] = useState<{ name: string; confidence?: string; description?: string }[]>([]);
   const [diagnosisType, setDiagnosisType] = useState('provisional');
+  const [tests, setTests] = useState<{ testName: string; testType?: string; reason?: string }[]>([]);
   const [medicines, setMedicines] = useState<any[]>([]);
 
   const handleNext = () => setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
@@ -36,6 +38,7 @@ export function PrescriptionBuilder() {
         clinicalFindings,
         diagnoses,
         diagnosisType,
+        tests,
         medicines,
       });
       toast.success('Prescription PDF downloaded successfully!');
@@ -109,6 +112,14 @@ export function PrescriptionBuilder() {
               />
             )}
             {currentStep === 3 && (
+              <TestsSection
+                symptoms={symptoms}
+                diagnoses={diagnoses}
+                tests={tests}
+                onTestsChange={setTests}
+              />
+            )}
+            {currentStep === 4 && (
               <MedicinesSection
                 symptoms={symptoms}
                 diagnoses={diagnoses}
