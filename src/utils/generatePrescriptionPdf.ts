@@ -28,12 +28,19 @@ interface Medicine {
   instructions: string;
 }
 
+interface DiagnosticTest {
+  testName: string;
+  testType?: string;
+  reason?: string;
+}
+
 interface PrescriptionData {
   vitals: Vitals;
   symptoms: string[];
   clinicalFindings: string;
   diagnoses: Diagnosis[];
   diagnosisType: string;
+  tests: DiagnosticTest[];
   medicines: Medicine[];
   doctorName?: string;
   clinicName?: string;
@@ -176,7 +183,30 @@ export function generatePrescriptionPdf(data: PrescriptionData): void {
     addLine();
   }
 
-  // Medicines Section
+  // Diagnostic Tests Section
+  if (data.tests.length > 0) {
+    checkPageBreak(40);
+    addSectionHeader('DIAGNOSTIC TESTS RECOMMENDED');
+    y += 2;
+    data.tests.forEach((test, index) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      addText(`${index + 1}. ${test.testName}`, 5);
+      if (test.testType) {
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 116, 139);
+        addText(`Type: ${test.testType}`, 10);
+      }
+      if (test.reason) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+        addText(`Reason: ${test.reason}`, 10);
+      }
+      y += 2;
+    });
+    y += 2;
+    addLine();
+  }
   if (data.medicines.length > 0 && data.medicines.some(m => m.name)) {
     checkPageBreak(50);
     addSectionHeader('PRESCRIBED MEDICATIONS');
