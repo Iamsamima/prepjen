@@ -6,8 +6,9 @@ import { VitalsSection } from '@/components/prescription/VitalsSection';
 import { SymptomsSection } from '@/components/prescription/SymptomsSection';
 import { DiagnosisSection } from '@/components/prescription/DiagnosisSection';
 import { MedicinesSection } from '@/components/prescription/MedicinesSection';
-import { Stethoscope, LogOut, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { Stethoscope, LogOut, ChevronLeft, ChevronRight, FileText, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 
 const steps = ['Vitals', 'Symptoms', 'Diagnosis', 'Medicines'];
 
@@ -28,8 +29,20 @@ export function PrescriptionBuilder() {
   const handlePrev = () => setCurrentStep((s) => Math.max(s - 1, 0));
 
   const handleGeneratePrescription = () => {
-    toast.success('Prescription generated! (Preview mode)');
-    console.log({ vitals, symptoms, clinicalFindings, diagnoses, diagnosisType, medicines });
+    try {
+      generatePrescriptionPdf({
+        vitals,
+        symptoms,
+        clinicalFindings,
+        diagnoses,
+        diagnosisType,
+        medicines,
+      });
+      toast.success('Prescription PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    }
   };
 
   return (
@@ -118,7 +131,7 @@ export function PrescriptionBuilder() {
             </Button>
           ) : (
             <Button onClick={handleGeneratePrescription} className="bg-gradient-primary shadow-glow">
-              <FileText className="h-4 w-4 mr-2" /> Generate Prescription
+              <Download className="h-4 w-4 mr-2" /> Download PDF
             </Button>
           )}
         </div>
