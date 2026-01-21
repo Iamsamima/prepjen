@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface SuggestionRequest {
-  type: 'symptoms' | 'diagnosis' | 'medicines' | 'dosage' | 'frequency' | 'duration' | 'tests';
+  type: 'symptoms' | 'diagnosis' | 'medicines' | 'dosage' | 'dose' | 'frequency' | 'duration' | 'tests';
   context: {
     symptoms?: string;
     diagnosis?: string;
@@ -52,6 +52,7 @@ serve(async (req) => {
         break;
         
       case 'dosage':
+      case 'dose':
         userPrompt = `For the medicine "${context.medicineName || ''}" (${context.medicineType || 'Tablet'}), suggest common dosages. Patient info: ${JSON.stringify(context.patientInfo || {})}. Return as JSON array of strings like: ["500mg", "250mg", "1g"]`;
         break;
         
