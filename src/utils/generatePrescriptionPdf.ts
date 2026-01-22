@@ -34,7 +34,16 @@ interface DiagnosticTest {
   reason?: string;
 }
 
+interface PatientInfo {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  medicalHistory: string;
+}
+
 interface PrescriptionData {
+  patientInfo: PatientInfo;
   vitals: Vitals;
   symptoms: string[];
   clinicalFindings: string;
@@ -109,6 +118,47 @@ export function generatePrescriptionPdf(data: PrescriptionData): void {
   })}`, pageWidth / 2, 30, { align: 'center' });
 
   y = 55;
+
+  // Patient Information Section
+  if (data.patientInfo.name || data.patientInfo.phone || data.patientInfo.email || data.patientInfo.address) {
+    checkPageBreak(40);
+    addSectionHeader('PATIENT INFORMATION');
+    y += 2;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    
+    if (data.patientInfo.name) {
+      doc.text(`Name: ${data.patientInfo.name}`, margin, y);
+      y += 6;
+    }
+    if (data.patientInfo.phone) {
+      doc.text(`Phone: ${data.patientInfo.phone}`, margin, y);
+      if (data.patientInfo.email) doc.text(`Email: ${data.patientInfo.email}`, pageWidth / 2, y);
+      y += 6;
+    } else if (data.patientInfo.email) {
+      doc.text(`Email: ${data.patientInfo.email}`, margin, y);
+      y += 6;
+    }
+    if (data.patientInfo.address) {
+      doc.text(`Address: ${data.patientInfo.address}`, margin, y);
+      y += 6;
+    }
+    
+    y += 4;
+    addLine();
+  }
+
+  // Medical History Section
+  if (data.patientInfo.medicalHistory) {
+    checkPageBreak(30);
+    addSectionHeader('MEDICAL HISTORY');
+    y += 2;
+    addText(data.patientInfo.medicalHistory);
+    y += 4;
+    addLine();
+  }
 
   // Patient Vitals Section
   checkPageBreak(50);

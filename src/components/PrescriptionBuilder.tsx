@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { PatientInfoSection } from '@/components/prescription/PatientInfoSection';
 import { VitalsSection } from '@/components/prescription/VitalsSection';
 import { SymptomsSection } from '@/components/prescription/SymptomsSection';
 import { DiagnosisSection } from '@/components/prescription/DiagnosisSection';
@@ -11,12 +12,15 @@ import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download } from 'lucide
 import { toast } from 'sonner';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 
-const steps = ['Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines'];
+const steps = ['Patient', 'Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines'];
 
 export function PrescriptionBuilder() {
   const { user, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
 
+  const [patientInfo, setPatientInfo] = useState({
+    name: '', phone: '', email: '', address: '', medicalHistory: '',
+  });
   const [vitals, setVitals] = useState({
     bp: '', pr: '', spo2: '', temp: '', height: '', weight: '', bmi: '', age: '', gender: '',
   });
@@ -33,6 +37,7 @@ export function PrescriptionBuilder() {
   const handleGeneratePrescription = () => {
     try {
       generatePrescriptionPdf({
+        patientInfo,
         vitals,
         symptoms,
         clinicalFindings,
@@ -93,8 +98,9 @@ export function PrescriptionBuilder() {
         {/* Content */}
         <Card className="border-0 shadow-elevated">
           <CardContent className="p-6 md:p-8">
-            {currentStep === 0 && <VitalsSection vitals={vitals} onChange={setVitals} />}
-            {currentStep === 1 && (
+            {currentStep === 0 && <PatientInfoSection patientInfo={patientInfo} onChange={setPatientInfo} />}
+            {currentStep === 1 && <VitalsSection vitals={vitals} onChange={setVitals} />}
+            {currentStep === 2 && (
               <SymptomsSection
                 symptoms={symptoms}
                 onSymptomsChange={setSymptoms}
@@ -102,7 +108,7 @@ export function PrescriptionBuilder() {
                 onClinicalFindingsChange={setClinicalFindings}
               />
             )}
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <DiagnosisSection
                 symptoms={symptoms}
                 diagnoses={diagnoses}
@@ -111,7 +117,7 @@ export function PrescriptionBuilder() {
                 onDiagnosisTypeChange={setDiagnosisType}
               />
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <TestsSection
                 symptoms={symptoms}
                 diagnoses={diagnoses}
@@ -119,7 +125,7 @@ export function PrescriptionBuilder() {
                 onTestsChange={setTests}
               />
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <MedicinesSection
                 symptoms={symptoms}
                 diagnoses={diagnoses}
