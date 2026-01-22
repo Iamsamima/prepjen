@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { AutoSuggestInput } from '@/components/ui/AutoSuggestInput';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
+import { TemplateManager } from '@/components/prescription/TemplateManager';
 import { Brain, X, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Diagnosis {
@@ -12,12 +13,25 @@ interface Diagnosis {
   description?: string;
 }
 
+interface DiagnosisTemplate {
+  id: string;
+  name: string;
+  diagnoses: Diagnosis[];
+  diagnosisType: string;
+  createdAt: number;
+}
+
 interface DiagnosisSectionProps {
   symptoms: string[];
   diagnoses: Diagnosis[];
   onDiagnosesChange: (diagnoses: Diagnosis[]) => void;
   diagnosisType: string;
   onDiagnosisTypeChange: (type: string) => void;
+  diagnosisTemplates: DiagnosisTemplate[];
+  onSaveDiagnosisTemplate: (name: string, diagnoses: Diagnosis[], diagnosisType: string) => void;
+  onDeleteDiagnosisTemplate: (id: string) => void;
+  onTrackDiagnosisUsage: (name: string) => void;
+  getSavedDiagnosisSuggestions: (query: string) => { name: string; source: string }[];
 }
 
 export function DiagnosisSection({
@@ -26,6 +40,11 @@ export function DiagnosisSection({
   onDiagnosesChange,
   diagnosisType,
   onDiagnosisTypeChange,
+  diagnosisTemplates,
+  onSaveDiagnosisTemplate,
+  onDeleteDiagnosisTemplate,
+  onTrackDiagnosisUsage,
+  getSavedDiagnosisSuggestions,
 }: DiagnosisSectionProps) {
   const [diagnosisInput, setDiagnosisInput] = useState('');
   const [hasFetchedAI, setHasFetchedAI] = useState(false);
@@ -47,6 +66,22 @@ export function DiagnosisSection({
     }
   }, [symptoms]);
 
+  // Combine AI suggestions with saved diagnosis suggestions
+  const combinedSuggestions = useMemo(() => {
+    const savedSuggestions = getSavedDiagnosisSuggestions(diagnosisInput);
+    const aiSuggestions = suggestions.map((s: any) => ({ ...s, source: 'ai' }));
+    
+    // Merge and deduplicate, prioritizing saved suggestions
+    const all = [...savedSuggestions, ...aiSuggestions];
+    const seen = new Set<string>();
+    return all.filter(s => {
+      const key = s.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [suggestions, diagnosisInput, getSavedDiagnosisSuggestions]);
+
   const handleAddDiagnosis = (diagnosis: any) => {
     const diagObj: Diagnosis = typeof diagnosis === 'string' 
       ? { name: diagnosis } 
@@ -58,6 +93,7 @@ export function DiagnosisSection({
     
     if (diagObj.name && !diagnoses.some(d => d.name === diagObj.name)) {
       onDiagnosesChange([...diagnoses, diagObj]);
+      onTrackDiagnosisUsage(diagObj.name);
     }
     setDiagnosisInput('');
     clearSuggestions();
@@ -97,7 +133,7 @@ export function DiagnosisSection({
       )}
 
       <div className="space-y-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex-1 space-y-2">
             <Label className="text-sm font-medium">Diagnosis Type</Label>
             <Select value={diagnosisType} onValueChange={onDiagnosisTypeChange}>
@@ -111,6 +147,19 @@ export function DiagnosisSection({
               </SelectContent>
             </Select>
           </div>
+          <div className="pt-6">
+            <TemplateManager
+              templates={diagnosisTemplates}
+              onSave={(name) => onSaveDiagnosisTemplate(name, diagnoses, diagnosisType)}
+              onLoad={(template) => {
+                onDiagnosesChange(template.diagnoses);
+                onDiagnosisTypeChange(template.diagnosisType);
+              }}
+              onDelete={onDeleteDiagnosisTemplate}
+              label="Diagnosis"
+              disabled={diagnoses.length === 0}
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -119,7 +168,7 @@ export function DiagnosisSection({
             value={diagnosisInput}
             onChange={setDiagnosisInput}
             onSelect={handleAddDiagnosis}
-            suggestions={suggestions}
+            suggestions={combinedSuggestions}
             loading={loading}
             placeholder="Type or select from AI suggestions..."
             displayKey="name"

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
+import { TemplateManager } from '@/components/prescription/TemplateManager';
 import { Pill, X, Plus, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Medicine {
@@ -18,12 +19,22 @@ interface Medicine {
   selected: boolean;
 }
 
+interface MedicineTemplate {
+  id: string;
+  name: string;
+  medicines: Medicine[];
+  createdAt: number;
+}
+
 interface MedicinesSectionProps {
   symptoms: string[];
   diagnoses: { name: string }[];
   medicines: Medicine[];
   onMedicinesChange: (medicines: Medicine[]) => void;
   patientInfo?: { age?: string; gender?: string; weight?: string };
+  medicineTemplates: MedicineTemplate[];
+  onSaveMedicineTemplate: (name: string, medicines: Medicine[]) => void;
+  onDeleteMedicineTemplate: (id: string) => void;
 }
 
 const emptyMedicine: Medicine = {
@@ -45,6 +56,9 @@ export function MedicinesSection({
   medicines,
   onMedicinesChange,
   patientInfo,
+  medicineTemplates,
+  onSaveMedicineTemplate,
+  onDeleteMedicineTemplate,
 }: MedicinesSectionProps) {
   const [hasFetchedAI, setHasFetchedAI] = useState(false);
   const { loading, suggestions, fetchSuggestions, clearSuggestions } = usePrescriptionSuggestions();
@@ -115,15 +129,25 @@ export function MedicinesSection({
 
   return (
     <div className="space-y-6 animate-slide-up">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Pill className="h-5 w-5 text-primary" />
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Pill className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold font-display text-foreground">Medicines</h3>
+            <p className="text-sm text-muted-foreground">AI suggests medicines, dosage, and duration</p>
+          </div>
+          <Sparkles className="h-4 w-4 text-primary animate-pulse" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold font-display text-foreground">Medicines</h3>
-          <p className="text-sm text-muted-foreground">AI suggests medicines, dosage, and duration</p>
-        </div>
-        <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />
+        <TemplateManager
+          templates={medicineTemplates}
+          onSave={(name) => onSaveMedicineTemplate(name, medicines)}
+          onLoad={(template) => onMedicinesChange(template.medicines)}
+          onDelete={onDeleteMedicineTemplate}
+          label="Medicine"
+          disabled={medicines.length === 0 || !medicines.some(m => m.name)}
+        />
       </div>
 
       {diagnoses.length === 0 && (

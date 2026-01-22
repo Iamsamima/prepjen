@@ -8,15 +8,34 @@ import { SymptomsSection } from '@/components/prescription/SymptomsSection';
 import { DiagnosisSection } from '@/components/prescription/DiagnosisSection';
 import { MedicinesSection } from '@/components/prescription/MedicinesSection';
 import { TestsSection } from '@/components/prescription/TestsSection';
-import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { DoctorSettingsSection } from '@/components/prescription/DoctorSettingsSection';
+import { useTemplates } from '@/hooks/useTemplates';
+import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 
-const steps = ['Patient', 'Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines'];
+const steps = ['Patient', 'Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines', 'Settings'];
 
 export function PrescriptionBuilder() {
   const { user, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
+  
+  const {
+    medicineTemplates,
+    saveMedicineTemplate,
+    deleteMedicineTemplate,
+    diagnosisTemplates,
+    saveDiagnosisTemplate,
+    deleteDiagnosisTemplate,
+    prescriptionTemplates,
+    savePrescriptionTemplate,
+    deletePrescriptionTemplate,
+    trackDiagnosisUsage,
+    getSavedDiagnosisSuggestions,
+    doctorProfile,
+    updateDoctorProfile,
+    clearImage,
+  } = useTemplates();
 
   const [patientInfo, setPatientInfo] = useState({
     name: '', phone: '', email: '', address: '', medicalHistory: '',
@@ -45,6 +64,7 @@ export function PrescriptionBuilder() {
         diagnosisType,
         tests,
         medicines,
+        doctorProfile,
       });
       toast.success('Prescription PDF downloaded successfully!');
     } catch (error) {
@@ -115,6 +135,11 @@ export function PrescriptionBuilder() {
                 onDiagnosesChange={setDiagnoses}
                 diagnosisType={diagnosisType}
                 onDiagnosisTypeChange={setDiagnosisType}
+                diagnosisTemplates={diagnosisTemplates}
+                onSaveDiagnosisTemplate={saveDiagnosisTemplate}
+                onDeleteDiagnosisTemplate={deleteDiagnosisTemplate}
+                onTrackDiagnosisUsage={trackDiagnosisUsage}
+                getSavedDiagnosisSuggestions={getSavedDiagnosisSuggestions}
               />
             )}
             {currentStep === 4 && (
@@ -132,6 +157,16 @@ export function PrescriptionBuilder() {
                 medicines={medicines}
                 onMedicinesChange={setMedicines}
                 patientInfo={{ age: vitals.age, gender: vitals.gender, weight: vitals.weight }}
+                medicineTemplates={medicineTemplates}
+                onSaveMedicineTemplate={saveMedicineTemplate}
+                onDeleteMedicineTemplate={deleteMedicineTemplate}
+              />
+            )}
+            {currentStep === 6 && (
+              <DoctorSettingsSection
+                profile={doctorProfile}
+                onUpdateProfile={updateDoctorProfile}
+                onClearImage={clearImage}
               />
             )}
           </CardContent>
