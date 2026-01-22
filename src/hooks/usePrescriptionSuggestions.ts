@@ -25,6 +25,7 @@ interface CacheEntry {
 const suggestionCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 const MAX_CACHE_SIZE = 100;
+const DEBOUNCE_DELAY = 600; // 600ms debounce to reduce API calls
 
 function getCacheKey(type: SuggestionType, context: SuggestionContext, query?: string): string {
   return JSON.stringify({ type, context, query: query?.toLowerCase().trim() });
@@ -109,7 +110,7 @@ export function usePrescriptionSuggestions() {
         } finally {
           setLoading(false);
         }
-      }, 400);
+      }, DEBOUNCE_DELAY);
     });
   }, []);
 

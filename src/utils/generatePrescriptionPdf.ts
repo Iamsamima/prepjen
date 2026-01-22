@@ -42,6 +42,19 @@ interface PatientInfo {
   medicalHistory: string;
 }
 
+interface DoctorProfile {
+  name: string;
+  qualifications: string;
+  registrationNo: string;
+  clinicName: string;
+  clinicAddress: string;
+  phone: string;
+  email: string;
+  signatureImage: string;
+  headerImage: string;
+  footerImage: string;
+}
+
 interface PrescriptionData {
   patientInfo: PatientInfo;
   vitals: Vitals;
@@ -51,6 +64,7 @@ interface PrescriptionData {
   diagnosisType: string;
   tests: DiagnosticTest[];
   medicines: Medicine[];
+  doctorProfile?: DoctorProfile;
   doctorName?: string;
   clinicName?: string;
 }
@@ -100,24 +114,94 @@ export function generatePrescriptionPdf(data: PrescriptionData): void {
     }
   };
 
-  // Header
-  doc.setFillColor(59, 130, 246);
-  doc.rect(0, 0, pageWidth, 40, 'F');
-  
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('PRESCRIPTION', pageWidth / 2, 18, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${new Date().toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  })}`, pageWidth / 2, 30, { align: 'center' });
+  // Custom Header Image or Default Header
+  if (data.doctorProfile?.headerImage) {
+    try {
+      doc.addImage(data.doctorProfile.headerImage, 'PNG', 0, 0, pageWidth, 40);
+    } catch {
+      // Fallback to default header if image fails
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('PRESCRIPTION', pageWidth / 2, 18, { align: 'center' });
+    }
+  } else {
+    // Default Header
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('PRESCRIPTION', pageWidth / 2, 18, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}`, pageWidth / 2, 30, { align: 'center' });
+  }
 
-  y = 55;
+  y = 50;
+
+  // Doctor Information (if available)
+  if (data.doctorProfile?.name || data.doctorProfile?.clinicName) {
+    checkPageBreak(30);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    
+    if (data.doctorProfile.name) {
+      doc.text(data.doctorProfile.name, margin, y);
+      y += 5;
+    }
+    if (data.doctorProfile.qualifications) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.doctorProfile.qualifications, margin, y);
+      y += 5;
+    }
+    if (data.doctorProfile.registrationNo) {
+      doc.setFontSize(9);
+      doc.text(`Reg. No: ${data.doctorProfile.registrationNo}`, margin, y);
+      y += 5;
+    }
+    if (data.doctorProfile.clinicName) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(data.doctorProfile.clinicName, margin, y);
+      y += 5;
+    }
+    if (data.doctorProfile.clinicAddress) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.doctorProfile.clinicAddress, margin, y);
+      y += 5;
+    }
+    if (data.doctorProfile.phone || data.doctorProfile.email) {
+      doc.setFontSize(9);
+      const contact = [data.doctorProfile.phone, data.doctorProfile.email].filter(Boolean).join(' | ');
+      doc.text(contact, margin, y);
+      y += 5;
+    }
+    
+    // Date on the right
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Date: ${new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}`, pageWidth - margin, 55, { align: 'right' });
+    
+    y += 5;
+    addLine();
+  }
 
   // Patient Information Section
   if (data.patientInfo.name || data.patientInfo.phone || data.patientInfo.email || data.patientInfo.address) {
@@ -305,20 +389,56 @@ export function generatePrescriptionPdf(data: PrescriptionData): void {
     });
   }
 
-  // Footer
+  // Signature Section
+  if (data.doctorProfile?.signatureImage) {
+    checkPageBreak(50);
+    y += 10;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    
+    // Signature image on the right
+    try {
+      doc.addImage(data.doctorProfile.signatureImage, 'PNG', pageWidth - margin - 50, y, 50, 20);
+      y += 25;
+      doc.text(data.doctorProfile.name || 'Doctor Signature', pageWidth - margin - 25, y, { align: 'center' });
+    } catch {
+      doc.text('_________________________', pageWidth - margin - 50, y + 15);
+      y += 20;
+      doc.text('Signature', pageWidth - margin - 25, y, { align: 'center' });
+    }
+    y += 10;
+  }
+
+  // Custom Footer Image or Default Footer
   const footerY = doc.internal.pageSize.getHeight() - 30;
-  doc.setDrawColor(226, 232, 240);
-  doc.line(margin, footerY, pageWidth - margin, footerY);
   
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(100, 116, 139);
-  doc.text('This prescription was generated using AI Prescription Builder', pageWidth / 2, footerY + 10, { align: 'center' });
-  
-  doc.setFontSize(8);
-  doc.text('Please consult your healthcare provider for any questions.', pageWidth / 2, footerY + 18, { align: 'center' });
+  if (data.doctorProfile?.footerImage) {
+    try {
+      doc.addImage(data.doctorProfile.footerImage, 'PNG', 0, doc.internal.pageSize.getHeight() - 25, pageWidth, 25);
+    } catch {
+      // Fallback to default footer
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, footerY, pageWidth - margin, footerY);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+      doc.text('This prescription was generated using AI Prescription Builder', pageWidth / 2, footerY + 10, { align: 'center' });
+    }
+  } else {
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 116, 139);
+    doc.text('This prescription was generated using AI Prescription Builder', pageWidth / 2, footerY + 10, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.text('Please consult your healthcare provider for any questions.', pageWidth / 2, footerY + 18, { align: 'center' });
+  }
 
   // Save the PDF
-  const fileName = `prescription_${new Date().toISOString().split('T')[0]}.pdf`;
+  const fileName = `prescription_${data.patientInfo.name ? data.patientInfo.name.replace(/\s+/g, '_') + '_' : ''}${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
 }
