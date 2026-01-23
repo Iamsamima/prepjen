@@ -38,14 +38,26 @@ interface SavedDiagnosis {
 interface DoctorProfile {
   name: string;
   qualifications: string;
+  specialization: string;
   registrationNo: string;
   clinicName: string;
   clinicAddress: string;
+  clinicCity: string;
+  clinicState: string;
+  clinicPincode: string;
   phone: string;
   email: string;
+  website: string;
+  // Chamber details (optional)
+  chamberName: string;
+  chamberAddress: string;
+  chamberTimings: string;
+  chamberPhone: string;
+  // Images
   signatureImage: string;
   headerImage: string;
   footerImage: string;
+  logoImage: string;
 }
 
 const STORAGE_KEYS = {
@@ -68,14 +80,24 @@ export function useTemplates() {
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile>({
     name: '',
     qualifications: '',
+    specialization: '',
     registrationNo: '',
     clinicName: '',
     clinicAddress: '',
+    clinicCity: '',
+    clinicState: '',
+    clinicPincode: '',
     phone: '',
     email: '',
+    website: '',
+    chamberName: '',
+    chamberAddress: '',
+    chamberTimings: '',
+    chamberPhone: '',
     signatureImage: '',
     headerImage: '',
     footerImage: '',
+    logoImage: '',
   });
 
   // Load from localStorage on mount
@@ -208,7 +230,7 @@ export function useTemplates() {
     });
   }, []);
 
-  const clearImage = useCallback((field: 'signatureImage' | 'headerImage' | 'footerImage') => {
+  const clearImage = useCallback((field: 'signatureImage' | 'headerImage' | 'footerImage' | 'logoImage') => {
     setDoctorProfile(prev => {
       const updated = { ...prev, [field]: '' };
       localStorage.setItem(STORAGE_KEYS.doctorProfile, JSON.stringify(updated));
