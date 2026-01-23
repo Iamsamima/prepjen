@@ -10,13 +10,17 @@ import { MedicinesSection } from '@/components/prescription/MedicinesSection';
 import { TestsSection } from '@/components/prescription/TestsSection';
 import { DoctorSettingsSection } from '@/components/prescription/DoctorSettingsSection';
 import { useTemplates } from '@/hooks/useTemplates';
-import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download, Settings } from 'lucide-react';
+import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 
+interface PrescriptionBuilderProps {
+  onBack?: () => void;
+}
+
 const steps = ['Patient', 'Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines', 'Settings'];
 
-export function PrescriptionBuilder() {
+export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
   const { user, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   
@@ -79,10 +83,15 @@ export function PrescriptionBuilder() {
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {onBack && (
+              <Button variant="ghost" size="sm" onClick={onBack} className="mr-2">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             <div className="p-2 rounded-lg bg-gradient-primary">
               <Stethoscope className="h-5 w-5 text-primary-foreground" />
             </div>
-            <h1 className="font-bold font-display text-lg">AI Prescription Builder</h1>
+            <h1 className="font-bold font-display text-lg">New Prescription</h1>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
