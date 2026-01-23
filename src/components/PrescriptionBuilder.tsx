@@ -53,9 +53,9 @@ export function PrescriptionBuilder() {
   const handleNext = () => setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
   const handlePrev = () => setCurrentStep((s) => Math.max(s - 1, 0));
 
-  const handleGeneratePrescription = () => {
+  const handleGeneratePrescription = async () => {
     try {
-      generatePrescriptionPdf({
+      await generatePrescriptionPdf({
         patientInfo,
         vitals,
         symptoms,
