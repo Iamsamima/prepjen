@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Appointment } from '@/hooks/useAppointments';
 import { AppointmentBookingForm } from './AppointmentBookingForm';
-import { MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2 } from 'lucide-react';
+import { AppointmentPrescriptionDialog } from './AppointmentPrescriptionDialog';
+import { MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, FileText, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 import { useTemplates } from '@/hooks/useTemplates';
@@ -23,7 +24,22 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [viewingAppointment, setViewingAppointment] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [prescribingAppointment, setPrescribingAppointment] = useState<Appointment | null>(null);
   const { doctorProfile } = useTemplates();
+
+  const handleMarkAsSeen = async (appointment: Appointment) => {
+    await onUpdate(appointment.id, { status: 'seen' });
+    setPrescribingAppointment(appointment);
+  };
+
+  const handleSavePrescription = async (prescriptionData: any) => {
+    if (prescribingAppointment) {
+      await onUpdate(prescribingAppointment.id, {
+        prescription_data: prescriptionData,
+        status: 'seen',
+      });
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -142,11 +158,28 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
                       <DropdownMenuItem onClick={() => setEditingAppointment(appointment)}>
                         <Pencil className="h-4 w-4 mr-2" /> Edit
                       </DropdownMenuItem>
-                      {appointment.prescription_data && (
-                        <DropdownMenuItem onClick={() => handleDownloadPrescription(appointment)}>
-                          <Download className="h-4 w-4 mr-2" /> Download Rx
+                      <DropdownMenuSeparator />
+                      {appointment.status === 'scheduled' && (
+                        <DropdownMenuItem onClick={() => handleMarkAsSeen(appointment)}>
+                          <CheckCircle className="h-4 w-4 mr-2" /> Mark as Seen & Create Rx
                         </DropdownMenuItem>
                       )}
+                      {appointment.status !== 'scheduled' && !appointment.prescription_data && (
+                        <DropdownMenuItem onClick={() => setPrescribingAppointment(appointment)}>
+                          <FileText className="h-4 w-4 mr-2" /> Create Prescription
+                        </DropdownMenuItem>
+                      )}
+                      {appointment.prescription_data && (
+                        <>
+                          <DropdownMenuItem onClick={() => setPrescribingAppointment(appointment)}>
+                            <FileText className="h-4 w-4 mr-2" /> Edit Prescription
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPrescription(appointment)}>
+                            <Download className="h-4 w-4 mr-2" /> Download Rx
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         onClick={() => setDeletingId(appointment.id)}
                         className="text-destructive"
@@ -264,6 +297,16 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Prescription Dialog */}
+      {prescribingAppointment && (
+        <AppointmentPrescriptionDialog
+          appointment={prescribingAppointment}
+          open={!!prescribingAppointment}
+          onOpenChange={(open) => !open && setPrescribingAppointment(null)}
+          onSave={handleSavePrescription}
+        />
+      )}
     </>
   );
 }
