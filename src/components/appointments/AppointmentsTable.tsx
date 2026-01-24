@@ -7,7 +7,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Appointment } from '@/hooks/useAppointments';
 import { AppointmentBookingForm } from './AppointmentBookingForm';
 import { AppointmentPrescriptionDialog } from './AppointmentPrescriptionDialog';
-import { MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, FileText, CheckCircle } from 'lucide-react';
+import { PatientHistoryDialog } from './PatientHistoryDialog';
+import { MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, FileText, CheckCircle, History } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 import { useTemplates } from '@/hooks/useTemplates';
@@ -25,6 +26,7 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
   const [viewingAppointment, setViewingAppointment] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [prescribingAppointment, setPrescribingAppointment] = useState<Appointment | null>(null);
+  const [historyPatient, setHistoryPatient] = useState<{ phone?: string; name?: string } | null>(null);
   const { doctorProfile } = useTemplates();
 
   const handleMarkAsSeen = async (appointment: Appointment) => {
@@ -180,6 +182,14 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
                         </>
                       )}
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setHistoryPatient({
+                          phone: appointment.patient_phone,
+                          name: appointment.patient_name,
+                        })}
+                      >
+                        <History className="h-4 w-4 mr-2" /> View History
+                      </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => setDeletingId(appointment.id)}
                         className="text-destructive"
@@ -305,6 +315,16 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
           open={!!prescribingAppointment}
           onOpenChange={(open) => !open && setPrescribingAppointment(null)}
           onSave={handleSavePrescription}
+        />
+      )}
+
+      {/* Patient History Dialog */}
+      {historyPatient && (
+        <PatientHistoryDialog
+          open={!!historyPatient}
+          onOpenChange={(open) => !open && setHistoryPatient(null)}
+          initialPhone={historyPatient.phone}
+          initialName={historyPatient.name}
         />
       )}
     </>
