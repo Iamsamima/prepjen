@@ -3,10 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LoginPage } from '@/components/LoginPage';
 import { PrescriptionBuilder } from '@/components/PrescriptionBuilder';
 import { AppointmentsDashboard } from '@/components/appointments/AppointmentsDashboard';
+import { BillingDashboard } from '@/components/billing/BillingDashboard';
 import { Button } from '@/components/ui/button';
-import { Loader2, Stethoscope, Calendar, LogOut, FileText } from 'lucide-react';
+import { Loader2, Stethoscope, Calendar, LogOut, FileText, Receipt } from 'lucide-react';
 
-type ActiveTab = 'appointments' | 'prescription';
+type ActiveTab = 'appointments' | 'prescription' | 'billing';
 
 const Index = () => {
   const { user, loading, signOut } = useAuth();
@@ -39,15 +40,24 @@ const Index = () => {
             </div>
             <h1 className="font-bold font-display text-lg">MediPrescribe Pro</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
-              variant="default"
+              variant={activeTab === 'appointments' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setActiveTab('appointments')}
               className="gap-2"
             >
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Appointments</span>
+            </Button>
+            <Button
+              variant={activeTab === 'billing' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('billing')}
+              className="gap-2"
+            >
+              <Receipt className="h-4 w-4" />
+              <span className="hidden sm:inline">Billing</span>
             </Button>
             <Button
               variant="ghost"
@@ -67,7 +77,8 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <AppointmentsDashboard />
+        {activeTab === 'appointments' && <AppointmentsDashboard />}
+        {activeTab === 'billing' && <BillingDashboard />}
       </main>
     </div>
   );

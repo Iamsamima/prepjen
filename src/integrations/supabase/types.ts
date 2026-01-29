@@ -74,6 +74,165 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          appointment_id: string | null
+          created_at: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          doctor_fees: number | null
+          gst_amount: number | null
+          gst_percentage: number | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          is_referred: boolean | null
+          notes: string | null
+          other_charges: number | null
+          other_charges_description: string | null
+          patient_email: string | null
+          patient_name: string
+          patient_phone: string | null
+          payment_date: string | null
+          payment_method: string | null
+          platform_fees: number | null
+          referral_commission_amount: number | null
+          referral_commission_paid: boolean | null
+          referral_commission_percentage: number | null
+          referrer_id: string | null
+          status: string | null
+          subtotal: number | null
+          total_amount: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          doctor_fees?: number | null
+          gst_amount?: number | null
+          gst_percentage?: number | null
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          is_referred?: boolean | null
+          notes?: string | null
+          other_charges?: number | null
+          other_charges_description?: string | null
+          patient_email?: string | null
+          patient_name: string
+          patient_phone?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          platform_fees?: number | null
+          referral_commission_amount?: number | null
+          referral_commission_paid?: boolean | null
+          referral_commission_percentage?: number | null
+          referrer_id?: string | null
+          status?: string | null
+          subtotal?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          appointment_id?: string | null
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          doctor_fees?: number | null
+          gst_amount?: number | null
+          gst_percentage?: number | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          is_referred?: boolean | null
+          notes?: string | null
+          other_charges?: number | null
+          other_charges_description?: string | null
+          patient_email?: string | null
+          patient_name?: string
+          patient_phone?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          platform_fees?: number | null
+          referral_commission_amount?: number | null
+          referral_commission_paid?: boolean | null
+          referral_commission_percentage?: number | null
+          referrer_id?: string | null
+          status?: string | null
+          subtotal?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "referrers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrers: {
+        Row: {
+          created_at: string | null
+          default_commission_percentage: number | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          notes: string | null
+          phone: string | null
+          total_commission_earned: number | null
+          total_commission_paid: number | null
+          type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          default_commission_percentage?: number | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          total_commission_earned?: number | null
+          total_commission_paid?: number | null
+          type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          default_commission_percentage?: number | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          total_commission_earned?: number | null
+          total_commission_paid?: number | null
+          type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
