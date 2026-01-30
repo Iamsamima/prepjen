@@ -8,12 +8,13 @@ import { Appointment } from '@/hooks/useAppointments';
 import { AppointmentBookingForm } from './AppointmentBookingForm';
 import { AppointmentPrescriptionDialog } from './AppointmentPrescriptionDialog';
 import { PatientHistoryDialog } from './PatientHistoryDialog';
-import { MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, FileText, CheckCircle, History } from 'lucide-react';
+import { InvoiceForm } from '@/components/billing/InvoiceForm';
+import { MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, FileText, CheckCircle, History, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useInvoices } from '@/hooks/useInvoices';
 import { toast } from 'sonner';
-
 interface AppointmentsTableProps {
   appointments: Appointment[];
   loading: boolean;
@@ -27,7 +28,9 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [prescribingAppointment, setPrescribingAppointment] = useState<Appointment | null>(null);
   const [historyPatient, setHistoryPatient] = useState<{ phone?: string; name?: string } | null>(null);
+  const [invoicingAppointment, setInvoicingAppointment] = useState<Appointment | null>(null);
   const { doctorProfile } = useTemplates();
+  const { createInvoice } = useInvoices();
 
   const handleMarkAsSeen = async (appointment: Appointment) => {
     await onUpdate(appointment.id, { status: 'seen' });
@@ -40,7 +43,15 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
         prescription_data: prescriptionData,
         status: 'seen',
       });
+      // After saving prescription, prompt for invoice creation
+      setInvoicingAppointment(prescribingAppointment);
+      setPrescribingAppointment(null);
     }
+  };
+
+  const handleCreateInvoice = async (invoiceData: any) => {
+    await createInvoice(invoiceData);
+    setInvoicingAppointment(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -178,6 +189,9 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDownloadPrescription(appointment)}>
                             <Download className="h-4 w-4 mr-2" /> Download Rx
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setInvoicingAppointment(appointment)}>
+                            <Receipt className="h-4 w-4 mr-2" /> Create Invoice
                           </DropdownMenuItem>
                         </>
                       )}
@@ -325,6 +339,22 @@ export function AppointmentsTable({ appointments, loading, onUpdate, onDelete }:
           onOpenChange={(open) => !open && setHistoryPatient(null)}
           initialPhone={historyPatient.phone}
           initialName={historyPatient.name}
+        />
+      )}
+
+      {/* Invoice Creation Dialog */}
+      {invoicingAppointment && (
+        <InvoiceForm
+          open={!!invoicingAppointment}
+          onOpenChange={(open) => !open && setInvoicingAppointment(null)}
+          onSubmit={handleCreateInvoice}
+          appointmentData={{
+            id: invoicingAppointment.id,
+            patient_name: invoicingAppointment.patient_name,
+            patient_phone: invoicingAppointment.patient_phone,
+            patient_email: invoicingAppointment.patient_email,
+            amount_charged: Number(invoicingAppointment.amount_charged),
+          }}
         />
       )}
     </>
