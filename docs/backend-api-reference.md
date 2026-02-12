@@ -2487,27 +2487,12 @@ All endpoints (except auth & demo) require a Bearer token:
 - General: 100 requests per 15 minutes
 - AI Suggestions: 30 requests per minute
 - Auth: 10 attempts per 15 minutes
-
-### Error Codes
-| Code | Description |
-|------|-------------|
-| AUTH_REQUIRED | No token provided |
-| INVALID_TOKEN | Token is invalid |
-| TOKEN_EXPIRED | Token has expired |
-| VALIDATION_ERROR | Request validation failed |
-| NOT_FOUND | Resource not found |
-| DUPLICATE_KEY | Unique constraint violation |
-| RATE_LIMIT_EXCEEDED | Too many requests |
-| AI_RATE_LIMIT | AI rate limit hit |
-| AI_CREDITS_EXHAUSTED | No AI credits remaining |
       `,
-      contact: {
-        name: 'MediPrescribe Support',
-      },
+      contact: { name: 'MediPrescribe Support' },
     },
     servers: [
-      { url: 'http://localhost:5000', description: 'Development' },
-      { url: 'https://api.mediprescribe.com', description: 'Production' },
+      { url: 'http://localhost:5000/api/v1', description: 'Development' },
+      { url: 'https://api.mediprescribe.com/api/v1', description: 'Production' },
     ],
     components: {
       securitySchemes: {
@@ -2515,19 +2500,316 @@ All endpoints (except auth & demo) require a Bearer token:
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
+          description: 'Enter JWT token obtained from /auth/login',
+        },
+      },
+      schemas: {
+        // ─── Reusable Schemas ────────────────────────────────
+        Error: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: { type: 'string', example: 'Validation failed' },
+            code: { type: 'string', example: 'VALIDATION_ERROR' },
+            details: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  field: { type: 'string' },
+                  message: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        AuthResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                user: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                    email: { type: 'string', example: 'doctor@clinic.com' },
+                  },
+                },
+                token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIs...' },
+              },
+            },
+          },
+        },
+        Appointment: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            user_id: { type: 'string', example: '507f1f77bcf86cd799439012' },
+            patient_name: { type: 'string', example: 'Rahul Sharma' },
+            patient_phone: { type: 'string', example: '+919876543210' },
+            patient_email: { type: 'string', example: 'rahul@email.com' },
+            patient_age: { type: 'integer', example: 35 },
+            patient_gender: { type: 'string', enum: ['Male', 'Female', 'Other'], example: 'Male' },
+            appointment_date: { type: 'string', format: 'date', example: '2026-02-12' },
+            appointment_time: { type: 'string', example: '10:30' },
+            status: { type: 'string', enum: ['scheduled', 'seen', 'cancelled', 'no-show'], example: 'scheduled' },
+            payment_status: { type: 'string', enum: ['pending', 'paid', 'partial'], example: 'pending' },
+            amount_charged: { type: 'number', example: 500 },
+            amount_paid: { type: 'number', example: 0 },
+            notes: { type: 'string', example: 'Follow-up visit' },
+            prescription_data: {
+              type: 'object',
+              nullable: true,
+              description: 'Full prescription JSON (symptoms, diagnosis, medicines, tests, vitals)',
+              example: {
+                symptoms: ['Fever', 'Headache'],
+                diagnosis: ['Viral Fever'],
+                medicines: [{ name: 'Paracetamol', type: 'Tablet', dose: '500mg', frequency: 'Twice daily', duration: '5 days' }],
+                tests: ['CBC', 'Blood Sugar'],
+                vitals: { bp: '120/80', pulse: '72', temp: '101.2°F' },
+              },
+            },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        AppointmentInput: {
+          type: 'object',
+          required: ['patient_name', 'appointment_date', 'appointment_time'],
+          properties: {
+            patient_name: { type: 'string', minLength: 1, maxLength: 200, example: 'Rahul Sharma' },
+            patient_phone: { type: 'string', example: '+919876543210' },
+            patient_email: { type: 'string', format: 'email', example: 'rahul@email.com' },
+            patient_age: { type: 'integer', minimum: 0, maximum: 150, example: 35 },
+            patient_gender: { type: 'string', enum: ['Male', 'Female', 'Other'] },
+            appointment_date: { type: 'string', format: 'date', example: '2026-02-12' },
+            appointment_time: { type: 'string', example: '10:30' },
+            status: { type: 'string', enum: ['scheduled', 'seen', 'cancelled', 'no-show'], default: 'scheduled' },
+            payment_status: { type: 'string', enum: ['pending', 'paid', 'partial'], default: 'pending' },
+            amount_charged: { type: 'number', minimum: 0, default: 0, example: 500 },
+            amount_paid: { type: 'number', minimum: 0, default: 0 },
+            notes: { type: 'string', maxLength: 2000 },
+            prescription_data: { type: 'object', nullable: true },
+          },
+        },
+        Invoice: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            user_id: { type: 'string' },
+            appointment_id: { type: 'string', nullable: true },
+            invoice_number: { type: 'string', example: 'INV-2602-0042' },
+            invoice_date: { type: 'string', format: 'date', example: '2026-02-12' },
+            patient_name: { type: 'string', example: 'Rahul Sharma' },
+            patient_phone: { type: 'string', example: '+919876543210' },
+            patient_email: { type: 'string' },
+            doctor_fees: { type: 'number', example: 500 },
+            platform_fees: { type: 'number', example: 50 },
+            gst_percentage: { type: 'number', example: 18 },
+            gst_amount: { type: 'number', example: 81, description: 'Auto-calculated' },
+            discount_percentage: { type: 'number', example: 10 },
+            discount_amount: { type: 'number', example: 55, description: 'Auto-calculated' },
+            other_charges: { type: 'number', example: 0 },
+            other_charges_description: { type: 'string' },
+            subtotal: { type: 'number', example: 550, description: 'Auto-calculated' },
+            total_amount: { type: 'number', example: 576, description: 'Auto-calculated' },
+            is_referred: { type: 'boolean', example: false },
+            referrer_id: { type: 'string', nullable: true },
+            referral_commission_percentage: { type: 'number', example: 10 },
+            referral_commission_amount: { type: 'number', example: 50, description: 'Auto-calculated' },
+            referral_commission_paid: { type: 'boolean', example: false },
+            status: { type: 'string', enum: ['draft', 'sent', 'paid', 'cancelled'], example: 'draft' },
+            payment_method: { type: 'string', enum: ['cash', 'upi', 'card', 'netbanking'], nullable: true },
+            payment_date: { type: 'string', format: 'date', nullable: true },
+            notes: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        InvoiceInput: {
+          type: 'object',
+          required: ['invoice_date', 'patient_name'],
+          properties: {
+            appointment_id: { type: 'string', nullable: true },
+            invoice_date: { type: 'string', format: 'date', example: '2026-02-12' },
+            patient_name: { type: 'string', example: 'Rahul Sharma' },
+            patient_phone: { type: 'string', example: '+919876543210' },
+            patient_email: { type: 'string' },
+            doctor_fees: { type: 'number', default: 0, example: 500 },
+            platform_fees: { type: 'number', default: 0, example: 50 },
+            gst_percentage: { type: 'number', default: 18 },
+            discount_percentage: { type: 'number', default: 0, example: 10 },
+            other_charges: { type: 'number', default: 0 },
+            other_charges_description: { type: 'string' },
+            is_referred: { type: 'boolean', default: false },
+            referrer_id: { type: 'string', nullable: true },
+            referral_commission_percentage: { type: 'number', default: 0 },
+            status: { type: 'string', enum: ['draft', 'sent', 'paid', 'cancelled'], default: 'draft' },
+            payment_method: { type: 'string', enum: ['cash', 'upi', 'card', 'netbanking'] },
+            notes: { type: 'string' },
+          },
+        },
+        Referrer: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            user_id: { type: 'string' },
+            name: { type: 'string', example: 'Dr. Amit Patel' },
+            phone: { type: 'string', example: '+919876543210' },
+            email: { type: 'string', example: 'amit@hospital.com' },
+            type: { type: 'string', enum: ['individual', 'clinic', 'hospital', 'other'], example: 'individual' },
+            default_commission_percentage: { type: 'number', example: 10 },
+            total_commission_earned: { type: 'number', example: 5000 },
+            total_commission_paid: { type: 'number', example: 3000 },
+            is_active: { type: 'boolean', example: true },
+            notes: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        ReferrerInput: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string', example: 'Dr. Amit Patel' },
+            phone: { type: 'string', example: '+919876543210' },
+            email: { type: 'string', format: 'email' },
+            type: { type: 'string', enum: ['individual', 'clinic', 'hospital', 'other'], default: 'individual' },
+            default_commission_percentage: { type: 'number', default: 10, minimum: 0, maximum: 100 },
+            notes: { type: 'string' },
+          },
+        },
+        SuggestionRequest: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: { type: 'string', enum: ['symptoms', 'diagnosis', 'medicines', 'dosage', 'dose', 'frequency', 'duration', 'tests'], example: 'diagnosis' },
+            context: {
+              type: 'object',
+              properties: {
+                symptoms: { type: 'string', example: 'Fever, Headache, Body ache' },
+                diagnosis: { type: 'string', example: 'Viral Fever' },
+                medicineName: { type: 'string', example: 'Paracetamol' },
+                medicineType: { type: 'string', example: 'Tablet' },
+                patientInfo: {
+                  type: 'object',
+                  properties: {
+                    age: { type: 'string', example: '35' },
+                    gender: { type: 'string', example: 'Male' },
+                    weight: { type: 'string', example: '70kg' },
+                  },
+                },
+              },
+            },
+            query: { type: 'string', example: 'Fev', description: 'Partial text for autocomplete' },
+          },
+        },
+        SuggestionResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                type: { type: 'string', example: 'diagnosis' },
+                suggestions: {
+                  type: 'array',
+                  items: { type: 'object' },
+                  example: [
+                    { name: 'Viral Fever', confidence: 'high', description: 'Common viral infection with fever' },
+                    { name: 'Dengue Fever', confidence: 'medium', description: 'Mosquito-borne viral disease' },
+                  ],
+                },
+                cached: { type: 'boolean', example: false },
+              },
+            },
+          },
+        },
+        Template: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            user_id: { type: 'string' },
+            type: { type: 'string', enum: ['medicine', 'diagnosis', 'prescription'] },
+            name: { type: 'string', example: 'Fever Standard Treatment' },
+            data: { type: 'object', description: 'Template-specific JSON data' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        DoctorProfile: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', example: 'Dr. Meena Sharma' },
+            qualifications: { type: 'string', example: 'MBBS, MD (General Medicine)' },
+            specialization: { type: 'string', example: 'General Physician' },
+            registrationNo: { type: 'string', example: 'MCI-12345' },
+            clinicName: { type: 'string', example: 'Sharma Clinic' },
+            clinicAddress: { type: 'string' },
+            clinicCity: { type: 'string' },
+            clinicState: { type: 'string' },
+            clinicPincode: { type: 'string' },
+            phone: { type: 'string' },
+            email: { type: 'string' },
+          },
+        },
+        AppointmentStats: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                total: { type: 'integer', example: 45 },
+                scheduled: { type: 'integer', example: 12 },
+                seen: { type: 'integer', example: 28 },
+                cancelled: { type: 'integer', example: 3 },
+                noShow: { type: 'integer', example: 2 },
+                totalRevenue: { type: 'number', example: 25000 },
+                collectedRevenue: { type: 'number', example: 22000 },
+                pendingRevenue: { type: 'number', example: 3000 },
+              },
+            },
+          },
+        },
+        BillingStats: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                totalInvoices: { type: 'integer', example: 38 },
+                totalRevenue: { type: 'number', example: 45000 },
+                totalCommissions: { type: 'number', example: 4500 },
+                pendingCommissions: { type: 'number', example: 1500 },
+                statusBreakdown: {
+                  type: 'object',
+                  properties: {
+                    draft: { type: 'integer', example: 5 },
+                    sent: { type: 'integer', example: 8 },
+                    paid: { type: 'integer', example: 22 },
+                    cancelled: { type: 'integer', example: 3 },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
     security: [{ bearerAuth: [] }],
     tags: [
-      { name: 'Auth', description: 'Authentication endpoints' },
-      { name: 'Appointments', description: 'Appointment CRUD & search' },
-      { name: 'Invoices', description: 'Invoice management with auto-calculation' },
-      { name: 'Referrers', description: 'Referral partner management' },
-      { name: 'AI Suggestions', description: 'Gemini-powered prescription suggestions' },
-      { name: 'Templates', description: 'Medicine/Diagnosis/Prescription templates' },
-      { name: 'Stats', description: 'Dashboard analytics' },
-      { name: 'Demo', description: 'Health check & testing endpoints' },
+      { name: 'Auth', description: 'Authentication — signup, login, session' },
+      { name: 'Appointments', description: 'Full CRUD with date filtering, regex search, prescription storage' },
+      { name: 'Invoices', description: 'Invoice management with auto-calculated GST, discounts, referral commissions' },
+      { name: 'Referrers', description: 'Referral partner management with commission tracking' },
+      { name: 'AI Suggestions', description: 'Gemini-powered auto-suggestions for symptoms, diagnosis, medicines, tests' },
+      { name: 'Templates', description: 'Reusable medicine/diagnosis/prescription templates' },
+      { name: 'Doctor Profile', description: 'Doctor settings — clinic info, branding images' },
+      { name: 'Stats', description: 'Dashboard analytics for appointments and billing' },
+      { name: 'Demo', description: 'Health check, DB status, AI test, seed data' },
     ],
   },
   apis: ['./src/routes/*.ts'],
@@ -2539,16 +2821,1622 @@ export function setupSwagger(app: Express) {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'MediPrescribe Pro API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'list',
+      filter: true,
+      tryItOutEnabled: true,
+    },
   }));
 
-  // Raw JSON spec endpoint
-  app.get('/api-docs.json', (_req, res) => {
-    res.json(specs);
+  // Raw JSON spec for Postman import
+  app.get('/api-docs.json', (_req, res) => res.json(specs));
+
+  // Raw YAML spec (optional)
+  app.get('/api-docs.yaml', (_req, res) => {
+    res.setHeader('Content-Type', 'text/yaml');
+    // Requires: npm i yaml
+    // import { stringify } from 'yaml';
+    // res.send(stringify(specs));
+    res.status(501).json({ error: 'Install yaml package to enable' });
   });
 
-  console.log('📄 Swagger docs available at: http://localhost:5000/api-docs');
+  console.log('📄 Swagger UI:   http://localhost:5000/api-docs');
+  console.log('📄 Swagger JSON:  http://localhost:5000/api-docs.json');
 }
 ```
+
+---
+
+### JSDoc Annotations for Every Route
+
+Add these JSDoc comments **above each route handler** in your route files. Swagger-jsdoc scans them automatically.
+
+---
+
+#### `src/routes/auth.ts` — Full Swagger Annotations
+
+```typescript
+import { Router } from 'express';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { User } from '../models/User';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
+
+const router = Router();
+
+/**
+ * @swagger
+ * /auth/signup:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register a new doctor account
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: doctor@clinic.com
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: securePass123
+ *           examples:
+ *             newDoctor:
+ *               summary: Standard signup
+ *               value:
+ *                 email: dr.meena@clinic.com
+ *                 password: strongPassword123
+ *     responses:
+ *       201:
+ *         description: Account created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *             example:
+ *               success: true
+ *               data:
+ *                 user: { id: "507f1f77bcf86cd799439011", email: "dr.meena@clinic.com" }
+ *                 token: "eyJhbGciOiJIUzI1NiIs..."
+ *       400:
+ *         description: Validation error (invalid email or short password)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               success: false
+ *               error: "Validation failed"
+ *               code: "VALIDATION_ERROR"
+ *               details: [{ field: "password", message: "Must be at least 6 characters" }]
+ *       409:
+ *         description: Email already registered
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "Email already exists"
+ *               code: "DUPLICATE_KEY"
+ *       429:
+ *         description: Too many signup attempts
+ */
+router.post('/signup', asyncHandler(async (req, res) => {
+  // ... implementation
+}));
+
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login with email and password
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: doctor@clinic.com
+ *               password:
+ *                 type: string
+ *                 example: securePass123
+ *           examples:
+ *             validLogin:
+ *               summary: Successful login
+ *               value:
+ *                 email: dr.meena@clinic.com
+ *                 password: strongPassword123
+ *     responses:
+ *       200:
+ *         description: Login successful — JWT token returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "Invalid email or password"
+ *               code: "INVALID_CREDENTIALS"
+ *       429:
+ *         description: Rate limited — too many login attempts
+ */
+router.post('/login', asyncHandler(async (req, res) => {
+  // ... implementation
+}));
+
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Get current authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user info
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data: { id: "507f1f77bcf86cd799439011", email: "dr.meena@clinic.com", createdAt: "2026-01-15T10:30:00Z" }
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "Token expired"
+ *               code: "TOKEN_EXPIRED"
+ */
+router.get('/me', authMiddleware, asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation
+}));
+
+export default router;
+```
+
+---
+
+#### `src/routes/appointments.ts` — Full Swagger Annotations
+
+```typescript
+import { Router } from 'express';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { Appointment } from '../models/Appointment';
+import { asyncHandler } from '../middleware/asyncHandler';
+
+const router = Router();
+router.use(authMiddleware);
+
+/**
+ * @swagger
+ * /appointments:
+ *   get:
+ *     tags: [Appointments]
+ *     summary: List appointments with date range and status filters
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: Start date (yyyy-MM-dd)
+ *         example: "2026-02-01"
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: End date (yyyy-MM-dd)
+ *         example: "2026-02-28"
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, seen, cancelled, no-show, all]
+ *         description: Filter by status (default "all")
+ *         example: "scheduled"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *           maximum: 200
+ *         description: Results per page
+ *     responses:
+ *       200:
+ *         description: List of appointments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Appointment'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 45
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 50
+ *                     pages:
+ *                       type: integer
+ *                       example: 1
+ *             example:
+ *               success: true
+ *               data:
+ *                 - _id: "507f1f77bcf86cd799439011"
+ *                   patient_name: "Rahul Sharma"
+ *                   patient_phone: "+919876543210"
+ *                   patient_age: 35
+ *                   patient_gender: "Male"
+ *                   appointment_date: "2026-02-12"
+ *                   appointment_time: "10:30"
+ *                   status: "scheduled"
+ *                   payment_status: "pending"
+ *                   amount_charged: 500
+ *                   amount_paid: 0
+ *               pagination: { total: 45, page: 1, limit: 50, pages: 1 }
+ *       401:
+ *         $ref: '#/components/schemas/Error'
+ */
+router.get('/', asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation
+}));
+
+/**
+ * @swagger
+ * /appointments/search:
+ *   get:
+ *     tags: [Appointments]
+ *     summary: Search appointments by patient name or phone (regex with debounce)
+ *     description: |
+ *       Uses MongoDB regex search with ReDoS protection.
+ *       **Frontend should debounce** calls by 600ms before hitting this endpoint.
+ *
+ *       ### Regex Behavior
+ *       - Input is escaped to prevent ReDoS attacks
+ *       - Case-insensitive matching
+ *       - Partial match supported (e.g., "Rah" matches "Rahul")
+ *
+ *       ### Debounce Strategy
+ *       ```
+ *       User types → wait 600ms → if no more typing → API call
+ *       ```
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 2
+ *         description: Search query (min 2 characters)
+ *         example: "Rahul"
+ *       - in: query
+ *         name: field
+ *         schema:
+ *           type: string
+ *           enum: [name, phone, all]
+ *           default: all
+ *         description: Which field to search
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *     responses:
+ *       200:
+ *         description: Search results
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - _id: "507f1f77bcf86cd799439011"
+ *                   patient_name: "Rahul Sharma"
+ *                   patient_phone: "+919876543210"
+ *                   appointment_date: "2026-02-12"
+ *                   status: "seen"
+ *               meta: { query: "Rahul", field: "all", count: 1 }
+ *       400:
+ *         description: Query too short (min 2 chars)
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "Search query must be at least 2 characters"
+ *               code: "VALIDATION_ERROR"
+ */
+router.get('/search', asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation with escapeRegex()
+}));
+
+/**
+ * @swagger
+ * /appointments/{id}:
+ *   get:
+ *     tags: [Appointments]
+ *     summary: Get a single appointment by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: MongoDB ObjectId
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Appointment details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Appointment'
+ *       404:
+ *         description: Appointment not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "Appointment not found"
+ *               code: "NOT_FOUND"
+ */
+router.get('/:id', asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation
+}));
+
+/**
+ * @swagger
+ * /appointments:
+ *   post:
+ *     tags: [Appointments]
+ *     summary: Create a new appointment
+ *     description: Creates an appointment. `user_id` is set automatically from JWT token.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AppointmentInput'
+ *           examples:
+ *             basicAppointment:
+ *               summary: Minimal appointment
+ *               value:
+ *                 patient_name: "Rahul Sharma"
+ *                 appointment_date: "2026-02-15"
+ *                 appointment_time: "14:00"
+ *             fullAppointment:
+ *               summary: Complete appointment with all fields
+ *               value:
+ *                 patient_name: "Priya Gupta"
+ *                 patient_phone: "+919876543211"
+ *                 patient_email: "priya@email.com"
+ *                 patient_age: 28
+ *                 patient_gender: "Female"
+ *                 appointment_date: "2026-02-15"
+ *                 appointment_time: "15:30"
+ *                 status: "scheduled"
+ *                 payment_status: "pending"
+ *                 amount_charged: 800
+ *                 notes: "First consultation — referred by Dr. Patel"
+ *     responses:
+ *       201:
+ *         description: Appointment created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Appointment'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/', asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation
+}));
+
+/**
+ * @swagger
+ * /appointments/{id}:
+ *   put:
+ *     tags: [Appointments]
+ *     summary: Update an appointment (status, prescription, payment, etc.)
+ *     description: |
+ *       Update any field. Common use cases:
+ *       - Change status to "seen" after consultation
+ *       - Save prescription data (JSONB)
+ *       - Update payment info
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AppointmentInput'
+ *           examples:
+ *             markSeen:
+ *               summary: Mark as seen with payment
+ *               value:
+ *                 status: "seen"
+ *                 payment_status: "paid"
+ *                 amount_paid: 500
+ *             savePrescription:
+ *               summary: Save prescription data
+ *               value:
+ *                 prescription_data:
+ *                   symptoms: ["Fever", "Headache", "Body ache"]
+ *                   diagnosis: ["Viral Fever"]
+ *                   medicines:
+ *                     - name: "Paracetamol"
+ *                       type: "Tablet"
+ *                       dose: "500mg"
+ *                       frequency: "Twice daily"
+ *                       duration: "5 days"
+ *                       instructions: "After food"
+ *                     - name: "Cetirizine"
+ *                       type: "Tablet"
+ *                       dose: "10mg"
+ *                       frequency: "Once daily (night)"
+ *                       duration: "3 days"
+ *                   tests: ["CBC", "Blood Sugar Fasting"]
+ *                   vitals:
+ *                     bp: "120/80"
+ *                     pulse: "72"
+ *                     temperature: "101.2°F"
+ *                     weight: "70kg"
+ *                     spo2: "98%"
+ *     responses:
+ *       200:
+ *         description: Updated appointment
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Appointment'
+ *       404:
+ *         description: Not found
+ */
+router.put('/:id', asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation
+}));
+
+/**
+ * @swagger
+ * /appointments/{id}:
+ *   delete:
+ *     tags: [Appointments]
+ *     summary: Delete an appointment
+ *     description: Permanently deletes the appointment. This action cannot be undone.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Successfully deleted
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data: { message: "Appointment deleted" }
+ *       404:
+ *         description: Not found
+ */
+router.delete('/:id', asyncHandler(async (req: AuthRequest, res: any) => {
+  // ... implementation
+}));
+
+export default router;
+```
+
+---
+
+#### `src/routes/invoices.ts` — Full Swagger Annotations
+
+```typescript
+import { Router } from 'express';
+const router = Router();
+
+/**
+ * @swagger
+ * /invoices:
+ *   get:
+ *     tags: [Invoices]
+ *     summary: List all invoices
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, sent, paid, cancelled, all]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *     responses:
+ *       200:
+ *         description: Invoice list with pagination
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - _id: "65a..."
+ *                   invoice_number: "INV-2602-0042"
+ *                   patient_name: "Rahul Sharma"
+ *                   doctor_fees: 500
+ *                   total_amount: 576
+ *                   status: "paid"
+ *               pagination: { total: 38, page: 1, limit: 50, pages: 1 }
+ */
+
+/**
+ * @swagger
+ * /invoices/calculate:
+ *   get:
+ *     tags: [Invoices]
+ *     summary: Preview invoice calculation without saving
+ *     description: |
+ *       Pass fee values as query params to preview the auto-calculated totals.
+ *       Formula:
+ *       ```
+ *       subtotal = doctor_fees + platform_fees + other_charges
+ *       discount_amount = subtotal × (discount_percentage / 100)
+ *       after_discount = subtotal - discount_amount
+ *       gst_amount = after_discount × (gst_percentage / 100)
+ *       total_amount = after_discount + gst_amount
+ *       referral_commission = doctor_fees × (commission_percentage / 100)
+ *       ```
+ *     parameters:
+ *       - in: query
+ *         name: doctor_fees
+ *         schema:
+ *           type: number
+ *         required: true
+ *         example: 500
+ *       - in: query
+ *         name: platform_fees
+ *         schema:
+ *           type: number
+ *         example: 50
+ *       - in: query
+ *         name: gst_percentage
+ *         schema:
+ *           type: number
+ *         example: 18
+ *       - in: query
+ *         name: discount_percentage
+ *         schema:
+ *           type: number
+ *         example: 10
+ *       - in: query
+ *         name: other_charges
+ *         schema:
+ *           type: number
+ *         example: 0
+ *       - in: query
+ *         name: referral_commission_percentage
+ *         schema:
+ *           type: number
+ *         example: 10
+ *     responses:
+ *       200:
+ *         description: Calculated preview
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 subtotal: 550
+ *                 discount_amount: 55
+ *                 after_discount: 495
+ *                 gst_amount: 89.1
+ *                 total_amount: 584.1
+ *                 referral_commission_amount: 50
+ */
+
+/**
+ * @swagger
+ * /invoices/search:
+ *   get:
+ *     tags: [Invoices]
+ *     summary: Search invoices by patient name, phone, or invoice number (regex)
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 2
+ *         example: "Rahul"
+ *       - in: query
+ *         name: field
+ *         schema:
+ *           type: string
+ *           enum: [name, phone, invoice_number, all]
+ *           default: all
+ *     responses:
+ *       200:
+ *         description: Matching invoices
+ */
+
+/**
+ * @swagger
+ * /invoices/{id}:
+ *   get:
+ *     tags: [Invoices]
+ *     summary: Get a single invoice with referrer details populated
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invoice with populated referrer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Invoice'
+ */
+
+/**
+ * @swagger
+ * /invoices:
+ *   post:
+ *     tags: [Invoices]
+ *     summary: Create a new invoice (totals auto-calculated)
+ *     description: |
+ *       - `invoice_number` auto-generated if not provided
+ *       - `subtotal`, `gst_amount`, `discount_amount`, `total_amount`, `referral_commission_amount` are **auto-calculated** by the server
+ *       - `user_id` set from JWT
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InvoiceInput'
+ *           examples:
+ *             simpleInvoice:
+ *               summary: Basic invoice
+ *               value:
+ *                 invoice_date: "2026-02-12"
+ *                 patient_name: "Rahul Sharma"
+ *                 doctor_fees: 500
+ *                 gst_percentage: 18
+ *             referredInvoice:
+ *               summary: Invoice with referral
+ *               value:
+ *                 invoice_date: "2026-02-12"
+ *                 patient_name: "Priya Gupta"
+ *                 patient_phone: "+919876543211"
+ *                 doctor_fees: 800
+ *                 platform_fees: 50
+ *                 gst_percentage: 18
+ *                 discount_percentage: 5
+ *                 is_referred: true
+ *                 referrer_id: "507f1f77bcf86cd799439022"
+ *                 referral_commission_percentage: 10
+ *                 notes: "Referred by Dr. Patel"
+ *     responses:
+ *       201:
+ *         description: Invoice created with auto-calculated totals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Invoice'
+ */
+
+/**
+ * @swagger
+ * /invoices/{id}:
+ *   put:
+ *     tags: [Invoices]
+ *     summary: Update an invoice (recalculates totals)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InvoiceInput'
+ *     responses:
+ *       200:
+ *         description: Updated invoice
+ */
+
+/**
+ * @swagger
+ * /invoices/{id}/mark-paid:
+ *   patch:
+ *     tags: [Invoices]
+ *     summary: Mark an invoice as paid
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               payment_method:
+ *                 type: string
+ *                 enum: [cash, upi, card, netbanking]
+ *                 example: "upi"
+ *               payment_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-02-12"
+ *     responses:
+ *       200:
+ *         description: Invoice marked as paid
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 _id: "65a..."
+ *                 status: "paid"
+ *                 payment_method: "upi"
+ *                 payment_date: "2026-02-12"
+ */
+
+/**
+ * @swagger
+ * /invoices/{id}:
+ *   delete:
+ *     tags: [Invoices]
+ *     summary: Delete an invoice
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data: { message: "Invoice deleted" }
+ */
+
+export default router;
+```
+
+---
+
+#### `src/routes/referrers.ts` — Full Swagger Annotations
+
+```typescript
+const router = Router();
+
+/**
+ * @swagger
+ * /referrers:
+ *   get:
+ *     tags: [Referrers]
+ *     summary: List all active referrers
+ *     parameters:
+ *       - in: query
+ *         name: include_inactive
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Include deactivated referrers
+ *     responses:
+ *       200:
+ *         description: Active referrers list
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - _id: "65a..."
+ *                   name: "Dr. Amit Patel"
+ *                   type: "individual"
+ *                   default_commission_percentage: 10
+ *                   total_commission_earned: 5000
+ *                   total_commission_paid: 3000
+ *                   is_active: true
+ */
+
+/**
+ * @swagger
+ * /referrers/search:
+ *   get:
+ *     tags: [Referrers]
+ *     summary: Search referrers by name (regex)
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 2
+ *         example: "Amit"
+ *     responses:
+ *       200:
+ *         description: Matching referrers
+ */
+
+/**
+ * @swagger
+ * /referrers:
+ *   post:
+ *     tags: [Referrers]
+ *     summary: Create a new referrer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReferrerInput'
+ *           examples:
+ *             individual:
+ *               summary: Individual doctor referrer
+ *               value:
+ *                 name: "Dr. Amit Patel"
+ *                 phone: "+919876543210"
+ *                 email: "amit@hospital.com"
+ *                 type: "individual"
+ *                 default_commission_percentage: 10
+ *             hospital:
+ *               summary: Hospital referrer
+ *               value:
+ *                 name: "City General Hospital"
+ *                 type: "hospital"
+ *                 default_commission_percentage: 15
+ *                 notes: "Emergency ward referrals"
+ *     responses:
+ *       201:
+ *         description: Referrer created
+ */
+
+/**
+ * @swagger
+ * /referrers/{id}:
+ *   put:
+ *     tags: [Referrers]
+ *     summary: Update a referrer
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReferrerInput'
+ *     responses:
+ *       200:
+ *         description: Updated referrer
+ */
+
+/**
+ * @swagger
+ * /referrers/{id}:
+ *   delete:
+ *     tags: [Referrers]
+ *     summary: Soft-delete (deactivate) a referrer
+ *     description: Sets `is_active` to false. Referrer data is preserved for existing invoice references.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Referrer deactivated
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data: { message: "Referrer deactivated", is_active: false }
+ */
+
+/**
+ * @swagger
+ * /referrers/{id}/commission-paid:
+ *   patch:
+ *     tags: [Referrers]
+ *     summary: Record a commission payment to a referrer
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [amount]
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 minimum: 0.01
+ *                 example: 2000
+ *                 description: Payment amount to record
+ *     responses:
+ *       200:
+ *         description: Commission payment recorded
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 name: "Dr. Amit Patel"
+ *                 total_commission_earned: 5000
+ *                 total_commission_paid: 5000
+ *                 outstanding: 0
+ */
+
+export default router;
+```
+
+---
+
+#### `src/routes/suggestions.ts` — Full Swagger Annotations
+
+```typescript
+const router = Router();
+
+/**
+ * @swagger
+ * /suggestions:
+ *   post:
+ *     tags: [AI Suggestions]
+ *     summary: Get AI-powered prescription suggestions (cached)
+ *     description: |
+ *       Returns intelligent suggestions for symptoms, diagnosis, medicines, dosage, frequency, duration, or tests.
+ *
+ *       **Caching**: Results are cached server-side (5min TTL) keyed by type+context+query.
+ *       **Rate limit**: 30 requests/minute.
+ *       **Frontend debounce**: 600ms recommended before calling.
+ *
+ *       ### Suggestion Types & Expected Responses
+ *       | Type | Returns |
+ *       |------|---------|
+ *       | `symptoms` | `string[]` — e.g. `["Fever", "Headache"]` |
+ *       | `diagnosis` | `{name, confidence, description}[]` |
+ *       | `medicines` | `{name, type, genericName}[]` |
+ *       | `dosage` / `dose` | `string[]` — e.g. `["500mg", "250mg"]` |
+ *       | `frequency` | `string[]` — e.g. `["Twice daily"]` |
+ *       | `duration` | `string[]` — e.g. `["5 days", "7 days"]` |
+ *       | `tests` | `{testName, testType, reason}[]` |
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SuggestionRequest'
+ *           examples:
+ *             symptomAutoComplete:
+ *               summary: Autocomplete symptoms
+ *               value:
+ *                 type: "symptoms"
+ *                 query: "Fev"
+ *                 context: {}
+ *             diagnosisFromSymptoms:
+ *               summary: Diagnose from symptoms
+ *               value:
+ *                 type: "diagnosis"
+ *                 context:
+ *                   symptoms: "Fever, Headache, Body ache, Fatigue"
+ *             medicinesForDiagnosis:
+ *               summary: Medicines for a diagnosis
+ *               value:
+ *                 type: "medicines"
+ *                 context:
+ *                   diagnosis: "Viral Fever"
+ *                   symptoms: "Fever, Headache"
+ *             dosageForMedicine:
+ *               summary: Dosage suggestion
+ *               value:
+ *                 type: "dosage"
+ *                 context:
+ *                   medicineName: "Paracetamol"
+ *                   medicineType: "Tablet"
+ *                   patientInfo:
+ *                     age: "35"
+ *                     gender: "Male"
+ *                     weight: "70kg"
+ *             testsForDiagnosis:
+ *               summary: Recommended tests
+ *               value:
+ *                 type: "tests"
+ *                 context:
+ *                   diagnosis: "Dengue Fever"
+ *                   symptoms: "High fever, Rash, Joint pain"
+ *     responses:
+ *       200:
+ *         description: AI suggestions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuggestionResponse'
+ *             examples:
+ *               symptomsResult:
+ *                 summary: Symptom suggestions
+ *                 value:
+ *                   success: true
+ *                   data:
+ *                     type: "symptoms"
+ *                     suggestions: ["Fever", "Fever with chills", "Fever with rash"]
+ *                     cached: false
+ *               diagnosisResult:
+ *                 summary: Diagnosis suggestions
+ *                 value:
+ *                   success: true
+ *                   data:
+ *                     type: "diagnosis"
+ *                     suggestions:
+ *                       - name: "Viral Fever"
+ *                         confidence: "high"
+ *                         description: "Common viral infection causing fever, headache, body aches"
+ *                       - name: "Dengue Fever"
+ *                         confidence: "medium"
+ *                         description: "Mosquito-borne viral disease"
+ *                       - name: "Malaria"
+ *                         confidence: "medium"
+ *                         description: "Parasitic infection transmitted by mosquitoes"
+ *                     cached: false
+ *               medicinesResult:
+ *                 summary: Medicine suggestions
+ *                 value:
+ *                   success: true
+ *                   data:
+ *                     type: "medicines"
+ *                     suggestions:
+ *                       - name: "Paracetamol"
+ *                         type: "Tablet"
+ *                         genericName: "Acetaminophen"
+ *                       - name: "Ibuprofen"
+ *                         type: "Tablet"
+ *                         genericName: "Ibuprofen"
+ *                     cached: true
+ *       429:
+ *         description: AI rate limit exceeded
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "AI rate limit exceeded. Please try again later."
+ *               code: "AI_RATE_LIMIT"
+ *       402:
+ *         description: AI credits exhausted
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error: "AI credits exhausted. Please add credits."
+ *               code: "AI_CREDITS_EXHAUSTED"
+ */
+
+/**
+ * @swagger
+ * /suggestions/stream:
+ *   post:
+ *     tags: [AI Suggestions]
+ *     summary: Stream AI suggestions via Server-Sent Events (SSE)
+ *     description: |
+ *       Returns an SSE stream of AI-generated content token-by-token.
+ *
+ *       **Response format**: `text/event-stream`
+ *       ```
+ *       data: {"content": "Par"}
+ *       data: {"content": "acetamol"}
+ *       data: [DONE]
+ *       ```
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SuggestionRequest'
+ *     responses:
+ *       200:
+ *         description: SSE stream
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: "data: {\"content\": \"Paracetamol 500mg\"}\n\ndata: [DONE]\n\n"
+ */
+
+export default router;
+```
+
+---
+
+#### `src/routes/templates.ts` — Swagger Annotations
+
+```typescript
+/**
+ * @swagger
+ * /templates:
+ *   get:
+ *     tags: [Templates]
+ *     summary: List templates filtered by type
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [medicine, diagnosis, prescription]
+ *         example: "medicine"
+ *     responses:
+ *       200:
+ *         description: Templates list
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - _id: "65a..."
+ *                   type: "medicine"
+ *                   name: "Fever Standard Pack"
+ *                   data:
+ *                     medicines:
+ *                       - name: "Paracetamol"
+ *                         dose: "500mg"
+ *                         frequency: "Twice daily"
+ *                         duration: "5 days"
+ */
+
+/**
+ * @swagger
+ * /templates:
+ *   post:
+ *     tags: [Templates]
+ *     summary: Save a new template
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [type, name, data]
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [medicine, diagnosis, prescription]
+ *               name:
+ *                 type: string
+ *                 example: "Fever Standard Pack"
+ *               data:
+ *                 type: object
+ *                 description: Template-specific JSON
+ *           examples:
+ *             medicineTemplate:
+ *               summary: Medicine template
+ *               value:
+ *                 type: "medicine"
+ *                 name: "Fever Standard Pack"
+ *                 data:
+ *                   medicines:
+ *                     - name: "Paracetamol"
+ *                       type: "Tablet"
+ *                       dose: "500mg"
+ *                       frequency: "Twice daily"
+ *                       duration: "5 days"
+ *                     - name: "Cetirizine"
+ *                       type: "Tablet"
+ *                       dose: "10mg"
+ *                       frequency: "Once daily"
+ *                       duration: "3 days"
+ *             prescriptionTemplate:
+ *               summary: Full prescription template
+ *               value:
+ *                 type: "prescription"
+ *                 name: "Viral Fever Complete"
+ *                 data:
+ *                   symptoms: ["Fever", "Headache", "Body ache"]
+ *                   diagnosis: ["Viral Fever"]
+ *                   medicines:
+ *                     - name: "Paracetamol"
+ *                       dose: "500mg"
+ *                   tests: ["CBC"]
+ *                   advice: "Rest, drink fluids, follow up in 3 days"
+ *     responses:
+ *       201:
+ *         description: Template created
+ */
+
+/**
+ * @swagger
+ * /templates/{id}:
+ *   delete:
+ *     tags: [Templates]
+ *     summary: Delete a template
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
+```
+
+---
+
+#### `src/routes/doctorProfile.ts` — Swagger Annotations
+
+```typescript
+/**
+ * @swagger
+ * /doctor-profile:
+ *   get:
+ *     tags: [Doctor Profile]
+ *     summary: Get doctor profile and settings
+ *     responses:
+ *       200:
+ *         description: Doctor profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/DoctorProfile'
+ *             example:
+ *               success: true
+ *               data:
+ *                 name: "Dr. Meena Sharma"
+ *                 qualifications: "MBBS, MD (General Medicine)"
+ *                 specialization: "General Physician"
+ *                 registrationNo: "MCI-12345"
+ *                 clinicName: "Sharma Clinic"
+ *                 clinicAddress: "123 Main Street"
+ *                 clinicCity: "Mumbai"
+ *                 clinicState: "Maharashtra"
+ *                 phone: "+919876543210"
+ */
+
+/**
+ * @swagger
+ * /doctor-profile:
+ *   put:
+ *     tags: [Doctor Profile]
+ *     summary: Update doctor profile (upsert)
+ *     description: Creates the profile if it doesn't exist, updates otherwise.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DoctorProfile'
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ */
+
+/**
+ * @swagger
+ * /doctor-profile/image/{field}:
+ *   delete:
+ *     tags: [Doctor Profile]
+ *     summary: Clear a specific image field
+ *     parameters:
+ *       - in: path
+ *         name: field
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [signatureImage, headerImage, footerImage, logoImage]
+ *         example: "signatureImage"
+ *     responses:
+ *       200:
+ *         description: Image field cleared
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data: { message: "signatureImage cleared" }
+ */
+```
+
+---
+
+#### `src/routes/stats.ts` — Swagger Annotations
+
+```typescript
+/**
+ * @swagger
+ * /stats/appointments:
+ *   get:
+ *     tags: [Stats]
+ *     summary: Appointment dashboard statistics
+ *     description: Aggregates appointment counts, revenue, and status breakdown for a date range.
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: "2026-02-01"
+ *       - in: query
+ *         name: to
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: "2026-02-28"
+ *     responses:
+ *       200:
+ *         description: Dashboard stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AppointmentStats'
+ */
+
+/**
+ * @swagger
+ * /stats/billing:
+ *   get:
+ *     tags: [Stats]
+ *     summary: Billing & referral statistics
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Billing stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BillingStats'
+ */
+```
+
+---
+
+#### `src/routes/demo.ts` — Swagger Annotations
+
+```typescript
+/**
+ * @swagger
+ * /demo/health:
+ *   get:
+ *     tags: [Demo]
+ *     summary: Health check endpoint
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 status: "ok"
+ *                 timestamp: "2026-02-12T10:30:00.000Z"
+ *                 uptime: 3600
+ *                 environment: "development"
+ *                 version: "1.0.0"
+ */
+
+/**
+ * @swagger
+ * /demo/db-status:
+ *   get:
+ *     tags: [Demo]
+ *     summary: Database connection status
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: DB status
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 status: "connected"
+ *                 host: "cluster0.mongodb.net"
+ *                 name: "mediprescribe"
+ */
+
+/**
+ * @swagger
+ * /demo/ai-test:
+ *   post:
+ *     tags: [Demo]
+ *     summary: Test AI integration with a sample prompt
+ *     security: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               prompt:
+ *                 type: string
+ *                 default: "Suggest 3 common medicines for fever"
+ *           examples:
+ *             feverMeds:
+ *               summary: Fever medicines
+ *               value:
+ *                 prompt: "Suggest 3 common medicines for fever"
+ *             diabetesTests:
+ *               summary: Diabetes tests
+ *               value:
+ *                 prompt: "What tests should be done for suspected diabetes?"
+ *     responses:
+ *       200:
+ *         description: AI response
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 prompt: "Suggest 3 common medicines for fever"
+ *                 response: "1. Paracetamol (500mg)\n2. Ibuprofen (400mg)\n3. Aspirin (325mg)"
+ *                 model: "gemini-2.5-flash"
+ */
+
+/**
+ * @swagger
+ * /demo/sample-data:
+ *   post:
+ *     tags: [Demo]
+ *     summary: Seed sample data (development only)
+ *     description: Creates 3 demo appointments for testing. Only available in development environment.
+ *     responses:
+ *       201:
+ *         description: Sample data created
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 message: "Sample data created"
+ *                 appointmentsCreated: 3
+ *       403:
+ *         description: Not allowed in production
+ */
+```
+
+---
+
+### Quick Start: Access Swagger
+
+After setting up, start the server and visit:
+
+```
+http://localhost:5000/api-docs          → Interactive Swagger UI
+http://localhost:5000/api-docs.json     → Raw OpenAPI JSON (import to Postman)
+```
+
+**Postman import**: Download `/api-docs.json` → Open Postman → Import → paste URL or file.
+
+**Authentication in Swagger UI**:
+1. Call `POST /auth/signup` or `POST /auth/login`
+2. Copy the `token` from the response
+3. Click **Authorize** (🔒) at the top → paste `Bearer <token>` → Authorize
+4. All subsequent requests include the JWT automatically
 
 ---
 
