@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pill, Plus, X, Search, Save, Trash2 } from 'lucide-react';
+import { Pill, Plus, Search, Trash2, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { exportToCSV, exportToJSON, importFromCSV, importFromJSON } from '@/utils/importExport';
 
 interface SavedMedicine {
   id: string;
@@ -77,11 +78,59 @@ export function MedicineSettings() {
     toast.success('Medicine removed');
   };
 
+  const handleExport = (format: 'csv' | 'json') => {
+    if (!medicines.length) { toast.error('No medicines to export'); return; }
+    format === 'csv' ? exportToCSV(medicines, 'medicines') : exportToJSON(medicines, 'medicines');
+    toast.success(`Exported ${medicines.length} medicines as ${format.toUpperCase()}`);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const isJSON = file.name.endsWith('.json');
+      const data = isJSON
+        ? await importFromJSON<SavedMedicine>(file)
+        : await importFromCSV<any>(file);
+      const imported = data.map((item: any) => ({
+        id: item.id || Date.now().toString() + Math.random().toString(36).slice(2),
+        name: item.name || '',
+        type: item.type || 'Tablet',
+        defaultDose: item.defaultDose || '',
+        defaultFrequency: item.defaultFrequency || '',
+        defaultRoute: item.defaultRoute || 'Oral',
+        defaultDuration: item.defaultDuration || '',
+        category: item.category || 'General',
+      })).filter((m: SavedMedicine) => m.name.trim());
+      save([...medicines, ...imported]);
+      toast.success(`Imported ${imported.length} medicines`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import failed');
+    }
+    e.target.value = '';
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Pill className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold font-display">Medicine Database</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Pill className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold font-display">Medicine Database</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleExport('json')} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> JSON
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <label>
+              <Upload className="h-3.5 w-3.5" /> Import
+              <input type="file" accept=".csv,.json" className="hidden" onChange={handleImport} />
+            </label>
+          </Button>
+        </div>
       </div>
 
       {/* Add Medicine */}
