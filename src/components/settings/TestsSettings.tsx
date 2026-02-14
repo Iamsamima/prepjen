@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FlaskConical, Plus, Search, Trash2 } from 'lucide-react';
+import { FlaskConical, Plus, Search, Trash2, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { exportToCSV, exportToJSON, importFromCSV, importFromJSON } from '@/utils/importExport';
 
 interface SavedTest {
   id: string;
@@ -71,6 +72,36 @@ export function TestsSettings() {
     toast.success('Test removed');
   };
 
+  const handleExport = (format: 'csv' | 'json') => {
+    if (!tests.length) { toast.error('No tests to export'); return; }
+    format === 'csv' ? exportToCSV(tests, 'tests') : exportToJSON(tests, 'tests');
+    toast.success(`Exported ${tests.length} tests as ${format.toUpperCase()}`);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const isJSON = file.name.endsWith('.json');
+      const data = isJSON
+        ? await importFromJSON<SavedTest>(file)
+        : await importFromCSV<any>(file);
+      const imported = data.map((item: any) => ({
+        id: item.id || Date.now().toString() + Math.random().toString(36).slice(2),
+        name: item.name || '',
+        type: item.type || 'Blood',
+        category: item.category || 'Routine',
+        normalRange: item.normalRange || '',
+        cost: item.cost || '',
+      })).filter((t: SavedTest) => t.name.trim());
+      save([...tests, ...imported]);
+      toast.success(`Imported ${imported.length} tests`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import failed');
+    }
+    e.target.value = '';
+  };
+
   const getTypeBadgeColor = (type: string) => {
     switch (type) {
       case 'Blood': return 'destructive';
@@ -82,9 +113,25 @@ export function TestsSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 mb-4">
-        <FlaskConical className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold font-display">Test Database</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <FlaskConical className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold font-display">Test Database</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleExport('json')} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> JSON
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <label>
+              <Upload className="h-3.5 w-3.5" /> Import
+              <input type="file" accept=".csv,.json" className="hidden" onChange={handleImport} />
+            </label>
+          </Button>
+        </div>
       </div>
 
       {/* Add Test */}
