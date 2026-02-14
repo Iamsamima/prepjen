@@ -4,10 +4,11 @@ import { LoginPage } from '@/components/LoginPage';
 import { PrescriptionBuilder } from '@/components/PrescriptionBuilder';
 import { AppointmentsDashboard } from '@/components/appointments/AppointmentsDashboard';
 import { BillingDashboard } from '@/components/billing/BillingDashboard';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { Button } from '@/components/ui/button';
-import { Loader2, Stethoscope, Calendar, LogOut, FileText, Receipt } from 'lucide-react';
+import { Loader2, Stethoscope, Calendar, LogOut, FileText, Receipt, Settings } from 'lucide-react';
 
-type ActiveTab = 'appointments' | 'prescription' | 'billing';
+type ActiveTab = 'appointments' | 'prescription' | 'billing' | 'settings';
 
 const Index = () => {
   const { user, loading, signOut } = useAuth();
@@ -27,6 +28,10 @@ const Index = () => {
 
   if (activeTab === 'prescription') {
     return <PrescriptionBuilder onBack={() => setActiveTab('appointments')} />;
+  }
+
+  if (activeTab === 'settings') {
+    return <SettingsPage onBack={() => setActiveTab('appointments')} />;
   }
 
   return (
@@ -67,6 +72,15 @@ const Index = () => {
             >
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">New Prescription</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('settings')}
+              className="gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Settings</span>
             </Button>
             <span className="text-sm text-muted-foreground hidden md:block">{user?.email}</span>
             <Button variant="ghost" size="sm" onClick={signOut}>
