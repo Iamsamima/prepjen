@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
 import { TemplateManager } from '@/components/prescription/TemplateManager';
-import { Pill, X, Plus, Sparkles, AlertCircle } from 'lucide-react';
+import { Pill, X, Plus, Sparkles, AlertCircle, BookOpen } from 'lucide-react';
+import { SuggestionMode } from '@/types/suggestion';
 
 interface Medicine {
   name: string;
@@ -35,6 +36,7 @@ interface MedicinesSectionProps {
   medicineTemplates: MedicineTemplate[];
   onSaveMedicineTemplate: (name: string, medicines: Medicine[]) => void;
   onDeleteMedicineTemplate: (id: string) => void;
+  suggestionMode?: SuggestionMode;
 }
 
 const emptyMedicine: Medicine = {
@@ -59,14 +61,17 @@ export function MedicinesSection({
   medicineTemplates,
   onSaveMedicineTemplate,
   onDeleteMedicineTemplate,
+  suggestionMode = 'combined',
 }: MedicinesSectionProps) {
   const [hasFetchedAI, setHasFetchedAI] = useState(false);
   const { loading, suggestions, fetchSuggestions, clearSuggestions } = usePrescriptionSuggestions();
   const [activeField, setActiveField] = useState<{ index: number; field: string } | null>(null);
 
+  const useAI = suggestionMode === 'ai' || suggestionMode === 'combined';
+
   // Auto-fetch medicine suggestions when diagnosis changes
   useEffect(() => {
-    if (diagnoses.length > 0 && !hasFetchedAI && medicines.length === 0) {
+    if (diagnoses.length > 0 && !hasFetchedAI && medicines.length === 0 && useAI) {
       const diagnosisStr = diagnoses.map(d => d.name).join(', ');
       const symptomsStr = symptoms.join(', ');
       fetchSuggestions('medicines', { diagnosis: diagnosisStr, symptoms: symptomsStr }).then((meds) => {
@@ -85,7 +90,7 @@ export function MedicinesSection({
       });
       setHasFetchedAI(true);
     }
-  }, [diagnoses]);
+  }, [diagnoses, useAI]);
 
   // Reset when diagnoses clear
   useEffect(() => {
@@ -138,7 +143,10 @@ export function MedicinesSection({
             <h3 className="text-lg font-semibold font-display text-foreground">Medicines</h3>
             <p className="text-sm text-muted-foreground">AI suggests medicines, dosage, and duration</p>
           </div>
-          <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+        {(suggestionMode === 'ai' || suggestionMode === 'combined') && 
+          <Sparkles className="h-4 w-4 text-primary animate-pulse" />}
+        {suggestionMode === 'saved' && 
+          <BookOpen className="h-4 w-4 text-primary" />}
         </div>
         <TemplateManager
           templates={medicineTemplates}

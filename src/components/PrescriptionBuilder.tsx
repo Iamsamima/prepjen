@@ -9,7 +9,10 @@ import { DiagnosisSection } from '@/components/prescription/DiagnosisSection';
 import { MedicinesSection } from '@/components/prescription/MedicinesSection';
 import { TestsSection } from '@/components/prescription/TestsSection';
 import { DoctorSettingsSection } from '@/components/prescription/DoctorSettingsSection';
+import { SuggestionModeSwitch } from '@/components/prescription/SuggestionModeSwitch';
+import { SaveAllTemplatesDialog } from '@/components/prescription/SaveAllTemplatesDialog';
 import { useTemplates } from '@/hooks/useTemplates';
+import { SuggestionMode } from '@/types/suggestion';
 import { Stethoscope, LogOut, ChevronLeft, ChevronRight, Download, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
@@ -23,7 +26,8 @@ const steps = ['Patient', 'Vitals', 'Symptoms', 'Diagnosis', 'Tests', 'Medicines
 export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
   const { user, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
-  
+  const [suggestionMode, setSuggestionMode] = useState<SuggestionMode>('combined');
+
   const {
     medicineTemplates,
     saveMedicineTemplate,
@@ -60,15 +64,7 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
   const handleGeneratePrescription = async () => {
     try {
       await generatePrescriptionPdf({
-        patientInfo,
-        vitals,
-        symptoms,
-        clinicalFindings,
-        diagnoses,
-        diagnosisType,
-        tests,
-        medicines,
-        doctorProfile,
+        patientInfo, vitals, symptoms, clinicalFindings, diagnoses, diagnosisType, tests, medicines, doctorProfile,
       });
       toast.success('Prescription PDF downloaded successfully!');
     } catch (error) {
@@ -79,7 +75,6 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
 
   return (
     <div className="min-h-screen bg-gradient-hero">
-      {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -93,7 +88,18 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
             </div>
             <h1 className="font-bold font-display text-lg">New Prescription</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <SuggestionModeSwitch mode={suggestionMode} onChange={setSuggestionMode} />
+            <SaveAllTemplatesDialog
+              hasMedicines={medicines.length > 0 && medicines.some(m => m.name)}
+              hasDiagnoses={diagnoses.length > 0}
+              hasFullPrescription={symptoms.length > 0 || diagnoses.length > 0 || medicines.length > 0}
+              onSaveMedicineTemplate={(name) => saveMedicineTemplate(name, medicines)}
+              onSaveDiagnosisTemplate={(name) => saveDiagnosisTemplate(name, diagnoses, diagnosisType)}
+              onSavePrescriptionTemplate={(name) => savePrescriptionTemplate(name, {
+                patientInfo, vitals, symptoms, clinicalFindings, diagnoses, diagnosisType, tests, medicines,
+              })}
+            />
             <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
@@ -124,7 +130,6 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
           ))}
         </div>
 
-        {/* Content */}
         <Card className="border-0 shadow-elevated">
           <CardContent className="p-6 md:p-8">
             {currentStep === 0 && <PatientInfoSection patientInfo={patientInfo} onChange={setPatientInfo} />}
@@ -135,6 +140,7 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
                 onSymptomsChange={setSymptoms}
                 clinicalFindings={clinicalFindings}
                 onClinicalFindingsChange={setClinicalFindings}
+                suggestionMode={suggestionMode}
               />
             )}
             {currentStep === 3 && (
@@ -149,6 +155,7 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
                 onDeleteDiagnosisTemplate={deleteDiagnosisTemplate}
                 onTrackDiagnosisUsage={trackDiagnosisUsage}
                 getSavedDiagnosisSuggestions={getSavedDiagnosisSuggestions}
+                suggestionMode={suggestionMode}
               />
             )}
             {currentStep === 4 && (
@@ -157,6 +164,7 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
                 diagnoses={diagnoses}
                 tests={tests}
                 onTestsChange={setTests}
+                suggestionMode={suggestionMode}
               />
             )}
             {currentStep === 5 && (
@@ -169,6 +177,7 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
                 medicineTemplates={medicineTemplates}
                 onSaveMedicineTemplate={saveMedicineTemplate}
                 onDeleteMedicineTemplate={deleteMedicineTemplate}
+                suggestionMode={suggestionMode}
               />
             )}
             {currentStep === 6 && (
@@ -181,7 +190,6 @@ export function PrescriptionBuilder({ onBack }: PrescriptionBuilderProps) {
           </CardContent>
         </Card>
 
-        {/* Navigation */}
         <div className="flex items-center justify-between mt-6">
           <Button variant="outline" onClick={handlePrev} disabled={currentStep === 0}>
             <ChevronLeft className="h-4 w-4 mr-2" /> Previous
