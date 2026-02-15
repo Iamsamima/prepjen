@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { AutoSuggestInput } from '@/components/ui/AutoSuggestInput';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
+import { useSavedMedicines } from '@/hooks/useSavedMedicines';
 import { TemplateManager } from '@/components/prescription/TemplateManager';
 import { Pill, X, Plus, Sparkles, AlertCircle, BookOpen } from 'lucide-react';
 import { SuggestionMode } from '@/types/suggestion';
@@ -65,7 +66,10 @@ export function MedicinesSection({
 }: MedicinesSectionProps) {
   const [hasFetchedAI, setHasFetchedAI] = useState(false);
   const { loading, suggestions, fetchSuggestions, clearSuggestions } = usePrescriptionSuggestions();
+  const { searchMedicines } = useSavedMedicines();
+  const [medicineNameInputs, setMedicineNameInputs] = useState<Record<number, string>>({});
   const [activeField, setActiveField] = useState<{ index: number; field: string } | null>(null);
+  const [activeNameIndex, setActiveNameIndex] = useState<number | null>(null);
 
   const useAI = suggestionMode === 'ai' || suggestionMode === 'combined';
 
@@ -103,6 +107,53 @@ export function MedicinesSection({
     const updated = [...medicines];
     updated[index] = { ...updated[index], [field]: value };
     onMedicinesChange(updated);
+  };
+
+  const handleMedicineNameChange = (index: number, value: string) => {
+    setMedicineNameInputs(prev => ({ ...prev, [index]: value }));
+    handleMedicineChange(index, 'name', value);
+    setActiveNameIndex(index);
+  };
+
+  const handleMedicineNameSelect = (index: number, item: any) => {
+    const name = typeof item === 'string' ? item : item.name || '';
+    handleMedicineChange(index, 'name', name);
+    setMedicineNameInputs(prev => ({ ...prev, [index]: '' }));
+    setActiveNameIndex(null);
+
+    // Auto-fill defaults from saved medicine database
+    if (typeof item === 'object' && item.defaultDose) {
+      const updated = [...medicines];
+      updated[index] = {
+        ...updated[index],
+        name,
+        type: item.type || updated[index].type,
+        dose: item.defaultDose || updated[index].dose,
+        frequency: item.defaultFrequency || updated[index].frequency,
+        route: item.defaultRoute || updated[index].route,
+        duration: item.defaultDuration || updated[index].duration,
+      };
+      onMedicinesChange(updated);
+    }
+  };
+
+  // Get name suggestions based on mode
+  const getNameSuggestions = (index: number) => {
+    const query = medicineNameInputs[index] || medicines[index]?.name || '';
+    if (!query || query.length < 1 || activeNameIndex !== index) return [];
+    
+    const useSaved = suggestionMode === 'saved' || suggestionMode === 'combined';
+    if (!useSaved) return [];
+    
+    return searchMedicines(query).map(m => ({
+      name: m.name,
+      description: [m.type, m.defaultDose, m.defaultFrequency].filter(Boolean).join(' • '),
+      type: m.type,
+      defaultDose: m.defaultDose,
+      defaultFrequency: m.defaultFrequency,
+      defaultRoute: m.defaultRoute,
+      defaultDuration: m.defaultDuration,
+    }));
   };
 
   const handleAddMedicine = () => {
@@ -195,11 +246,14 @@ export function MedicinesSection({
               {/* Medicine Name */}
               <div className="col-span-2 md:col-span-1 space-y-2">
                 <Label className="text-sm font-medium">Medicine Name</Label>
-                <Input
+                <AutoSuggestInput
                   value={med.name}
-                  onChange={(e) => handleMedicineChange(index, 'name', e.target.value)}
-                  placeholder="Enter medicine name"
-                  className="h-10"
+                  onChange={(v) => handleMedicineNameChange(index, v)}
+                  onSelect={(item) => handleMedicineNameSelect(index, item)}
+                  suggestions={getNameSuggestions(index)}
+                  loading={false}
+                  placeholder="Type to search saved medicines..."
+                  displayKey="name"
                 />
               </div>
 
