@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
 import { TemplateManager } from '@/components/prescription/TemplateManager';
-import { Brain, X, Sparkles, AlertCircle } from 'lucide-react';
+import { Brain, X, Sparkles, AlertCircle, BookOpen } from 'lucide-react';
+import { SuggestionMode } from '@/types/suggestion';
 
 interface Diagnosis {
   name: string;
@@ -32,6 +33,7 @@ interface DiagnosisSectionProps {
   onDeleteDiagnosisTemplate: (id: string) => void;
   onTrackDiagnosisUsage: (name: string) => void;
   getSavedDiagnosisSuggestions: (query: string) => { name: string; source: string }[];
+  suggestionMode?: SuggestionMode;
 }
 
 export function DiagnosisSection({
@@ -45,18 +47,22 @@ export function DiagnosisSection({
   onDeleteDiagnosisTemplate,
   onTrackDiagnosisUsage,
   getSavedDiagnosisSuggestions,
+  suggestionMode = 'combined',
 }: DiagnosisSectionProps) {
   const [diagnosisInput, setDiagnosisInput] = useState('');
   const [hasFetchedAI, setHasFetchedAI] = useState(false);
   const { loading, suggestions, fetchSuggestions, clearSuggestions } = usePrescriptionSuggestions();
 
+  const useAI = suggestionMode === 'ai' || suggestionMode === 'combined';
+  const useSaved = suggestionMode === 'saved' || suggestionMode === 'combined';
+
   // Auto-fetch diagnosis suggestions when symptoms change
   useEffect(() => {
-    if (symptoms.length > 0 && !hasFetchedAI) {
+    if (symptoms.length > 0 && !hasFetchedAI && useAI) {
       fetchSuggestions('diagnosis', { symptoms: symptoms.join(', ') });
       setHasFetchedAI(true);
     }
-  }, [symptoms]);
+  }, [symptoms, useAI]);
 
   // Reset when symptoms clear
   useEffect(() => {
@@ -66,12 +72,11 @@ export function DiagnosisSection({
     }
   }, [symptoms]);
 
-  // Combine AI suggestions with saved diagnosis suggestions
+  // Combine suggestions based on mode
   const combinedSuggestions = useMemo(() => {
-    const savedSuggestions = getSavedDiagnosisSuggestions(diagnosisInput);
-    const aiSuggestions = suggestions.map((s: any) => ({ ...s, source: 'ai' }));
+    const savedSuggestions = useSaved ? getSavedDiagnosisSuggestions(diagnosisInput) : [];
+    const aiSuggestions = useAI ? suggestions.map((s: any) => ({ ...s, source: 'ai' })) : [];
     
-    // Merge and deduplicate, prioritizing saved suggestions
     const all = [...savedSuggestions, ...aiSuggestions];
     const seen = new Set<string>();
     return all.filter(s => {
@@ -80,7 +85,7 @@ export function DiagnosisSection({
       seen.add(key);
       return true;
     });
-  }, [suggestions, diagnosisInput, getSavedDiagnosisSuggestions]);
+  }, [suggestions, diagnosisInput, getSavedDiagnosisSuggestions, useAI, useSaved]);
 
   const handleAddDiagnosis = (diagnosis: any) => {
     const diagObj: Diagnosis = typeof diagnosis === 'string' 
@@ -122,7 +127,10 @@ export function DiagnosisSection({
           <h3 className="text-lg font-semibold font-display text-foreground">Diagnosis</h3>
           <p className="text-sm text-muted-foreground">AI suggests diagnoses based on symptoms</p>
         </div>
-        <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />
+        {(suggestionMode === 'ai' || suggestionMode === 'combined') && 
+          <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />}
+        {suggestionMode === 'saved' && 
+          <BookOpen className="h-4 w-4 text-primary ml-auto" />}
       </div>
 
       {symptoms.length === 0 && (

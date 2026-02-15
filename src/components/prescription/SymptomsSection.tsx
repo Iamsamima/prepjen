@@ -5,13 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
-import { Stethoscope, X, Sparkles } from 'lucide-react';
+import { Stethoscope, X, Sparkles, BookOpen } from 'lucide-react';
+import { SuggestionMode } from '@/types/suggestion';
 
 interface SymptomsSectionProps {
   symptoms: string[];
   onSymptomsChange: (symptoms: string[]) => void;
   clinicalFindings: string;
   onClinicalFindingsChange: (findings: string) => void;
+  suggestionMode?: SuggestionMode;
 }
 
 export function SymptomsSection({
@@ -19,17 +21,20 @@ export function SymptomsSection({
   onSymptomsChange,
   clinicalFindings,
   onClinicalFindingsChange,
+  suggestionMode = 'combined',
 }: SymptomsSectionProps) {
   const [symptomInput, setSymptomInput] = useState('');
   const { loading, suggestions, fetchSuggestions, clearSuggestions } = usePrescriptionSuggestions();
 
+  const useAI = suggestionMode === 'ai' || suggestionMode === 'combined';
+
   useEffect(() => {
-    if (symptomInput.length >= 2) {
+    if (symptomInput.length >= 2 && useAI) {
       fetchSuggestions('symptoms', {}, symptomInput);
     } else {
       clearSuggestions();
     }
-  }, [symptomInput]);
+  }, [symptomInput, useAI]);
 
   const handleAddSymptom = (symptom: string | { name?: string }) => {
     const symptomText = typeof symptom === 'string' ? symptom : symptom.name || '';
@@ -54,7 +59,9 @@ export function SymptomsSection({
           <h3 className="text-lg font-semibold font-display text-foreground">Symptoms & Complaints</h3>
           <p className="text-sm text-muted-foreground">AI will suggest relevant symptoms as you type</p>
         </div>
-        <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />
+        {suggestionMode === 'ai' && <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />}
+        {suggestionMode === 'saved' && <BookOpen className="h-4 w-4 text-primary ml-auto" />}
+        {suggestionMode === 'combined' && <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />}
       </div>
 
       <div className="space-y-4">

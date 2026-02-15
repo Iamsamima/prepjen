@@ -12,6 +12,8 @@ import { ChevronLeft, ChevronRight, Download, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { generatePrescriptionPdf } from '@/utils/generatePrescriptionPdf';
 import { Appointment } from '@/hooks/useAppointments';
+import { SuggestionModeSwitch } from '@/components/prescription/SuggestionModeSwitch';
+import { SuggestionMode } from '@/types/suggestion';
 
 interface AppointmentPrescriptionDialogProps {
   appointment: Appointment;
@@ -30,6 +32,7 @@ export function AppointmentPrescriptionDialog({
 }: AppointmentPrescriptionDialogProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [suggestionMode, setSuggestionMode] = useState<SuggestionMode>('combined');
 
   const {
     medicineTemplates,
@@ -122,8 +125,9 @@ export function AppointmentPrescriptionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Create Prescription for {appointment.patient_name}
+          <DialogTitle className="flex items-center justify-between">
+            <span>Create Prescription for {appointment.patient_name}</span>
+            <SuggestionModeSwitch mode={suggestionMode} onChange={setSuggestionMode} />
           </DialogTitle>
         </DialogHeader>
 
@@ -160,6 +164,7 @@ export function AppointmentPrescriptionDialog({
               onSymptomsChange={setSymptoms}
               clinicalFindings={clinicalFindings}
               onClinicalFindingsChange={setClinicalFindings}
+              suggestionMode={suggestionMode}
             />
           )}
           {currentStep === 2 && (
@@ -174,6 +179,7 @@ export function AppointmentPrescriptionDialog({
               onDeleteDiagnosisTemplate={deleteDiagnosisTemplate}
               onTrackDiagnosisUsage={trackDiagnosisUsage}
               getSavedDiagnosisSuggestions={getSavedDiagnosisSuggestions}
+              suggestionMode={suggestionMode}
             />
           )}
           {currentStep === 3 && (
@@ -182,6 +188,7 @@ export function AppointmentPrescriptionDialog({
               diagnoses={diagnoses}
               tests={tests}
               onTestsChange={setTests}
+              suggestionMode={suggestionMode}
             />
           )}
           {currentStep === 4 && (
@@ -194,6 +201,7 @@ export function AppointmentPrescriptionDialog({
               medicineTemplates={medicineTemplates}
               onSaveMedicineTemplate={saveMedicineTemplate}
               onDeleteMedicineTemplate={deleteMedicineTemplate}
+              suggestionMode={suggestionMode}
             />
           )}
         </div>

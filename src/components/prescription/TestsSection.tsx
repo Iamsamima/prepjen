@@ -3,7 +3,8 @@ import { AutoSuggestInput } from '@/components/ui/AutoSuggestInput';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { usePrescriptionSuggestions } from '@/hooks/usePrescriptionSuggestions';
-import { FlaskConical, X, Sparkles, AlertCircle } from 'lucide-react';
+import { FlaskConical, X, Sparkles, AlertCircle, BookOpen } from 'lucide-react';
+import { SuggestionMode } from '@/types/suggestion';
 
 interface DiagnosticTest {
   testName: string;
@@ -16,6 +17,7 @@ interface TestsSectionProps {
   diagnoses: { name: string }[];
   tests: DiagnosticTest[];
   onTestsChange: (tests: DiagnosticTest[]) => void;
+  suggestionMode?: SuggestionMode;
 }
 
 export function TestsSection({
@@ -23,21 +25,24 @@ export function TestsSection({
   diagnoses,
   tests,
   onTestsChange,
+  suggestionMode = 'combined',
 }: TestsSectionProps) {
   const [testInput, setTestInput] = useState('');
   const [hasFetchedAI, setHasFetchedAI] = useState(false);
   const { loading, suggestions, fetchSuggestions, clearSuggestions } = usePrescriptionSuggestions();
 
+  const useAI = suggestionMode === 'ai' || suggestionMode === 'combined';
+
   // Auto-fetch test suggestions when diagnoses change
   useEffect(() => {
-    if (diagnoses.length > 0 && !hasFetchedAI) {
+    if (diagnoses.length > 0 && !hasFetchedAI && useAI) {
       fetchSuggestions('tests', {
         diagnosis: diagnoses.map(d => d.name).join(', '),
         symptoms: symptoms.join(', '),
       });
       setHasFetchedAI(true);
     }
-  }, [diagnoses]);
+  }, [diagnoses, useAI]);
 
   // Reset when diagnoses clear
   useEffect(() => {
@@ -95,7 +100,10 @@ export function TestsSection({
           <h3 className="text-lg font-semibold font-display text-foreground">Diagnostic Tests</h3>
           <p className="text-sm text-muted-foreground">AI suggests tests based on diagnosis</p>
         </div>
-        <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />
+        {(suggestionMode === 'ai' || suggestionMode === 'combined') && 
+          <Sparkles className="h-4 w-4 text-primary ml-auto animate-pulse" />}
+        {suggestionMode === 'saved' && 
+          <BookOpen className="h-4 w-4 text-primary ml-auto" />}
       </div>
 
       {diagnoses.length === 0 && (
