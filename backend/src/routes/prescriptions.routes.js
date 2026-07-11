@@ -13,6 +13,7 @@ router.use(auth);
 router.get('/', c.list);
 router.post('/', c.create);
 router.get('/search', c.search);
+router.get('/history/:phone', c.byPhone);
 router.get('/:id', c.getOne);
 router.put('/:id', c.update);
 router.delete('/:id', c.remove);
