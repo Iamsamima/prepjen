@@ -299,7 +299,7 @@ export const api = {
         | 'frequency'
         | 'duration'
         | 'tests';
-      context?: Record<string, unknown>;
+      context?: Record<string, any>;
       query?: string;
     }) =>
       request<{ type: string; suggestions: unknown[]; keyIndex: number }>(
