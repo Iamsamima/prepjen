@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { api, isCustomBackendEnabled } from '@/lib/apiClient';
 
 interface SuggestionContext {
   symptoms?: string;
@@ -77,22 +78,38 @@ export function usePrescriptionSuggestions() {
 
         setLoading(true);
         try {
-          const { data, error } = await supabase.functions.invoke('prescription-suggest', {
-            body: { type, context, query },
-          });
+          let result: any[] = [];
 
-          if (error) {
-            console.error('Suggestion error:', error);
-            if (error.message?.includes('429')) {
-              toast.error('Rate limit exceeded. Please wait a moment.');
-            } else if (error.message?.includes('402')) {
-              toast.error('AI credits exhausted. Please add more credits.');
+          if (isCustomBackendEnabled()) {
+            // Prefer the custom Node backend (multi-key Gemini rotation).
+            try {
+              const data = await api.ai.suggest({ type, context, query });
+              result = Array.isArray(data?.suggestions) ? (data.suggestions as any[]) : [];
+            } catch (err: any) {
+              console.error('Custom AI suggest error:', err);
+              if (err?.status === 429) toast.error('Rate limit exceeded. Please wait a moment.');
+              else if (err?.status === 401) toast.error('Sign in required for AI suggestions.');
+              else if (err?.status >= 500) toast.error('AI service unavailable, retrying next call.');
+              resolve([]);
+              return;
             }
-            resolve([]);
-            return;
-          }
+          } else {
+            const { data, error } = await supabase.functions.invoke('prescription-suggest', {
+              body: { type, context, query },
+            });
 
-          const result = data?.suggestions || [];
+            if (error) {
+              console.error('Suggestion error:', error);
+              if (error.message?.includes('429')) {
+                toast.error('Rate limit exceeded. Please wait a moment.');
+              } else if (error.message?.includes('402')) {
+                toast.error('AI credits exhausted. Please add more credits.');
+              }
+              resolve([]);
+              return;
+            }
+            result = data?.suggestions || [];
+          }
           
           // Store in cache
           cleanupCache();
