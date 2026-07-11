@@ -70,7 +70,7 @@ exports.markPaid = asyncHandler(async (req, res) => {
 });
 
 exports.stats = asyncHandler(async (req, res) => {
-  const match = { user_id: req.user.id };
+  const match = { user_id: req.user._mongoId || undefined };
   const [agg] = await Invoice.aggregate([
     { $match: match },
     {

@@ -23,7 +23,12 @@ async function paginate(Model, query = {}, opts = {}) {
   }
 
   for (const key of allowedFilters) {
-    if (query[key] !== undefined && query[key] !== '') filter[key] = query[key];
+    if (query[key] !== undefined && query[key] !== '') {
+      const v = query[key];
+      if (v === 'true') filter[key] = true;
+      else if (v === 'false') filter[key] = false;
+      else filter[key] = v;
+    }
   }
 
   if (dateField && (query.from || query.to)) {

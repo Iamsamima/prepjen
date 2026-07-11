@@ -71,4 +71,15 @@ router.post('/chat', c.chat);
  */
 router.get('/status', c.status);
 
+/**
+ * @swagger
+ * /api/ai/reload:
+ *   post:
+ *     tags: [AI]
+ *     summary: Reload Gemini API keys from env (clears cooldowns)
+ *     security: [{ bearerAuth: [] }]
+ *     responses: { 200: { description: OK } }
+ */
+router.post('/reload', c.reload);
+
 module.exports = router;

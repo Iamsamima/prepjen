@@ -16,7 +16,7 @@ exports.remove = base.remove;
 exports.search = base.search;
 
 exports.stats = asyncHandler(async (req, res) => {
-  const match = { user_id: req.user.id };
+  const match = { user_id: req.user._mongoId || undefined };
   const [agg] = await Appointment.aggregate([
     { $match: match },
     {

@@ -14,21 +14,38 @@ const ApiError = require('../utils/ApiError');
 
 const BASE = process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com/v1beta';
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-const COOLDOWN_MS = 60_000; // how long a rate-limited key sits out
+const COOLDOWN_MS = Number(process.env.GEMINI_COOLDOWN_MS || 60_000);
 
 function loadKeys() {
   const raw = process.env.GEMINI_API_KEYS || '';
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  // De-dup while preserving order — accidental duplicates would waste rotations.
+  const seen = new Set();
+  const keys = [];
+  for (const raw2 of raw.split(',')) {
+    const s = raw2.trim();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    keys.push(s);
+  }
+  // Back-compat: also honour a single GEMINI_API_KEY.
+  if (keys.length === 0 && process.env.GEMINI_API_KEY) {
+    keys.push(process.env.GEMINI_API_KEY.trim());
+  }
+  return keys;
 }
 
 const state = {
   keys: loadKeys(),
   cursor: 0,
   cooldownUntil: new Map(), // key -> epoch ms
+  stats: new Map(), // key -> { calls, errors, lastError }
 };
 
 function refreshKeysIfEmpty() {
-  if (state.keys.length === 0) state.keys = loadKeys();
+  if (state.keys.length === 0) {
+    state.keys = loadKeys();
+    state.cursor = 0;
+  }
 }
 
 function pickKey() {
@@ -64,6 +81,16 @@ function coolDown(key, ms = COOLDOWN_MS) {
   logger.warn(`Gemini key #${state.keys.indexOf(key)} cooled down for ${ms}ms`);
 }
 
+function bumpStats(key, { error, message } = {}) {
+  const s = state.stats.get(key) || { calls: 0, errors: 0, lastError: null };
+  s.calls += 1;
+  if (error) {
+    s.errors += 1;
+    s.lastError = message || String(error);
+  }
+  state.stats.set(key, s);
+}
+
 /**
  * Call Gemini generateContent with automatic key failover.
  * @param {Array|string} prompt - either a string or an array of {role, parts:[{text}]}.
@@ -81,7 +108,7 @@ async function generate(prompt, opts = {}) {
 
   const body = {
     contents,
-    ...(opts.system ? { systemInstruction: { role: 'system', parts: [{ text: opts.system }] } } : {}),
+    ...(opts.system ? { systemInstruction: { role: 'user', parts: [{ text: opts.system }] } } : {}),
     generationConfig: {
       temperature: 0.7,
       ...(opts.json ? { responseMimeType: 'application/json' } : {}),
@@ -96,29 +123,36 @@ async function generate(prompt, opts = {}) {
     const { key, index } = pickKey();
     const url = `${BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Number(process.env.GEMINI_TIMEOUT_MS || 30_000));
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout));
 
-      if (res.status === 429 || res.status === 403) {
+      if (res.status === 429 || res.status === 403 || res.status === 401) {
         coolDown(key);
+        bumpStats(key, { error: true, message: `HTTP ${res.status}` });
         lastErr = new ApiError(res.status, `Gemini key #${index} rate-limited`);
         continue;
       }
       if (!res.ok) {
         const text = await res.text();
+        bumpStats(key, { error: true, message: `HTTP ${res.status}` });
         throw new ApiError(res.status, 'Gemini API error', text.slice(0, 500));
       }
 
       const data = await res.json();
       const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') || '';
+      bumpStats(key, {});
       return { text, raw: data, keyIndex: index };
     } catch (e) {
       lastErr = e;
       if (e instanceof ApiError && (e.status === 429 || e.status === 403)) continue;
-      // For network errors, cool this key briefly and retry.
+      // For network / abort errors, cool this key briefly and retry.
+      bumpStats(key, { error: true, message: e.message });
       coolDown(key, 10_000);
     }
   }
@@ -149,8 +183,19 @@ function getStatus() {
       preview: k.slice(0, 6) + '…' + k.slice(-4),
       cooling: (state.cooldownUntil.get(k) || 0) > now,
       cooldown_remaining_ms: Math.max(0, (state.cooldownUntil.get(k) || 0) - now),
+      calls: state.stats.get(k)?.calls || 0,
+      errors: state.stats.get(k)?.errors || 0,
+      last_error: state.stats.get(k)?.lastError || null,
     })),
+    healthy_keys: state.keys.filter((k) => (state.cooldownUntil.get(k) || 0) <= now).length,
   };
 }
 
-module.exports = { generate, extractJson, getStatus };
+function reloadKeys() {
+  state.keys = loadKeys();
+  state.cursor = 0;
+  state.cooldownUntil.clear();
+  return state.keys.length;
+}
+
+module.exports = { generate, extractJson, getStatus, reloadKeys };
