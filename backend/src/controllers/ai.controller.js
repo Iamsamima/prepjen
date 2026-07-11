@@ -1,6 +1,6 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { generate, extractJson, getStatus } = require('../services/geminiService');
+const { generate, extractJson, getStatus, reloadKeys } = require('../services/geminiService');
 
 const SYSTEM = `You are a medical AI assistant helping doctors write prescriptions.
 You provide accurate, evidence-based suggestions. ALWAYS respond with a valid JSON array only, no prose.`;
@@ -50,3 +50,8 @@ exports.chat = asyncHandler(async (req, res) => {
 });
 
 exports.status = asyncHandler(async (_req, res) => res.json(getStatus()));
+
+exports.reload = asyncHandler(async (_req, res) => {
+  const total = reloadKeys();
+  res.json({ ok: true, totalKeys: total });
+});
