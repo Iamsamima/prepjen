@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Settings2, Globe, Bell, Palette, Save } from 'lucide-react';
+import { Settings2, Globe, Bell, Palette, Save, Sun, Moon, Crown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTheme, Theme } from '@/contexts/ThemeContext';
 
 interface GeneralConfig {
   language: string;
@@ -23,6 +24,7 @@ interface GeneralConfig {
 const STORAGE_KEY = 'app_general_settings';
 
 export function GeneralSettings() {
+  const { theme, setTheme } = useTheme();
   const [config, setConfig] = useState<GeneralConfig>({
     language: 'en',
     timezone: 'Asia/Kolkata',
@@ -55,6 +57,52 @@ export function GeneralSettings() {
         <Settings2 className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold font-display">General Settings</h2>
       </div>
+
+      {/* Theme */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Palette className="h-4 w-4 text-muted-foreground" />
+            Theme
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {([
+              { id: 'light', label: 'Light', icon: Sun, swatch: ['#ffffff', '#e2e8f0', 'hsl(174 62% 38%)'] },
+              { id: 'dark', label: 'Dark', icon: Moon, swatch: ['#0f1f24', '#1c2f36', 'hsl(174 55% 50%)'] },
+              { id: 'pro', label: 'Pro — Golden Black', icon: Crown, swatch: ['#0f0f0f', '#1a1a1a', 'hsl(45 78% 55%)'] },
+            ] as Array<{ id: Theme; label: string; icon: any; swatch: string[] }>).map((opt) => {
+              const Icon = opt.icon;
+              const active = theme === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTheme(opt.id)}
+                  className={`text-left rounded-lg border-2 p-4 transition-all ${
+                    active ? 'border-primary shadow-glow' : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className="h-4 w-4" />
+                    <span className="font-medium text-sm">{opt.label}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {opt.swatch.map((c, i) => (
+                      <div
+                        key={i}
+                        className="h-6 flex-1 rounded"
+                        style={{ background: c }}
+                      />
+                    ))}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Localization */}
       <Card>
