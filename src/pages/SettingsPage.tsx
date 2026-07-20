@@ -8,7 +8,8 @@ import { RolePermissionSettings } from '@/components/settings/RolePermissionSett
 import { MedicineSettings } from '@/components/settings/MedicineSettings';
 import { PrescriptionTemplateSettings } from '@/components/settings/PrescriptionTemplateSettings';
 import { TestsSettings } from '@/components/settings/TestsSettings';
-import { Stethoscope, ArrowLeft, LogOut, Settings, User, Settings2, Shield, Pill, FileText, FlaskConical } from 'lucide-react';
+import { AdvancedSettings } from '@/components/settings/AdvancedSettings';
+import { Stethoscope, ArrowLeft, LogOut, Settings, User, Settings2, Shield, Pill, FileText, FlaskConical, KeyRound } from 'lucide-react';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -66,6 +67,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               <FlaskConical className="h-4 w-4" />
               <span className="hidden sm:inline">Tests</span>
             </TabsTrigger>
+            <TabsTrigger value="advanced" className="gap-2 text-xs sm:text-sm">
+              <KeyRound className="h-4 w-4" />
+              <span className="hidden sm:inline">Advanced</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile"><ProfileSettings /></TabsContent>
@@ -74,6 +79,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <TabsContent value="medicines"><MedicineSettings /></TabsContent>
           <TabsContent value="templates"><PrescriptionTemplateSettings /></TabsContent>
           <TabsContent value="tests"><TestsSettings /></TabsContent>
+          <TabsContent value="advanced"><AdvancedSettings /></TabsContent>
         </Tabs>
       </main>
     </div>
