@@ -117,14 +117,10 @@ serve(async (req) => {
           );
           if (gRes.status === 429 || gRes.status === 403 || gRes.status === 401 || gRes.status === 400) {
             const errText = (await gRes.text()).slice(0, 300);
-            const status = gRes.status === 429 ? "expired" : "expired";
             await admin.from("gemini_api_keys").update({
-              status,
+              status: "expired",
               last_error: `HTTP ${gRes.status}: ${errText}`,
-              error_count: (undefined as any),
             }).eq("id", k.id);
-            // increment error_count separately
-            await admin.rpc; // no-op placeholder
             continue;
           }
           if (!gRes.ok) {
